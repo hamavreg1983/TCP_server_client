@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 	}
 
 	printf("--START--\n");
-	TCP_t* client;
+	TCP_S_t* client;
 	client = TCP_CreateClient(serverIP, serverPort);
 	if (!client)
 	{

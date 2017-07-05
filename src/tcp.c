@@ -24,7 +24,7 @@
 #define DEAD_MAGIC_NUMBER	0xdeadface
 
 #define GENERAL_ERROR -1
-#define BACK_LOG_CAPACITY 512
+#define BACK_LOG_CAPACITY 128
 #define BUFFER_MAX_SIZE 1024
 
 #define MAX_CLIENTS_NUM 1000
@@ -32,7 +32,7 @@
 
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct TCP
+struct TCP_S
 {
 	int m_magicNumber;
 
@@ -48,22 +48,36 @@ struct TCP
 
 };
 
+struct TCP_C
+{
+	int m_magicNumber;
+
+	int m_commSocket; /* used for client */
+
+	uint m_serverPort;
+	char m_serverIP[20];
+
+};
+
 /* ~~~ Internal function forward declaration ~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-static bool IsStructValid(TCP_t* _TCP);
-static bool IsConnected(TCP_t* _TCP);
+static bool IsStructValid(TCP_S_t* _TCP);
+static bool IsConnected(TCP_S_t* _TCP);
 
-static bool ServerSetup(TCP_t* _TCP);
+bool TCP_ClientConnect(TCP_S_t* _TCP);
+
+static bool ServerSetup(TCP_S_t* _TCP);
 static bool SetSocketBlockingEnabled(int fd, bool blocking);
 static bool IsFail_nonBlocking(int _result);
+
 static void sanity_check(char* _string, uint _size, char _replaceWith);
 
 /* ~~~ API function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-TCP_t* TCP_CreateServer(uint _port)
+TCP_S_t* TCP_CreateServer(uint _port)
 {
-	TCP_t* aTCP = 0;
-	aTCP = malloc(1 * sizeof(TCP_t) );
+	TCP_S_t* aTCP = 0;
+	aTCP = malloc(1 * sizeof(TCP_S_t) );
 	if (!aTCP)
 	{
 		/* ERROR */
@@ -104,10 +118,10 @@ TCP_t* TCP_CreateServer(uint _port)
 	return aTCP;
 }
 
-TCP_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
+TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 {
-	TCP_t* aTCP = 0;
-	aTCP = malloc(1 * sizeof(TCP_t) );
+	TCP_S_t* aTCP = 0;
+	aTCP = malloc(1 * sizeof(TCP_S_t) );
 	if (!aTCP)
 	{
 		/* ERROR */
@@ -122,7 +136,7 @@ TCP_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 	aTCP->m_commSocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (aTCP->m_commSocket < 0)
 	{
-		perror("Socket Failed");
+		perror("CreateClient, Socket create Failed");
 		free(aTCP);
 		return NULL;
 	}
@@ -138,7 +152,7 @@ TCP_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 	return aTCP;
 }
 
-void TCP_DestroyServer(TCP_t* _TCP)
+void TCP_DestroyServer(TCP_S_t* _TCP)
 {
 	if ( !IsStructValid(_TCP) )
 	{
@@ -166,7 +180,7 @@ void TCP_DestroyServer(TCP_t* _TCP)
 	return;
 }
 
-void TCP_DestroyClient(TCP_t* _TCP)
+void TCP_DestroyClient(TCP_S_t* _TCP)
 {
 	if ( !IsStructValid(_TCP) )
 	{
@@ -182,7 +196,7 @@ void TCP_DestroyClient(TCP_t* _TCP)
 }
 
 
-bool ServerSetup(TCP_t* _TCP)
+bool ServerSetup(TCP_S_t* _TCP)
 {
 	/* Reusing port */
 	int optval = 1;
@@ -209,14 +223,14 @@ bool ServerSetup(TCP_t* _TCP)
 	/* set socket to listen to new client */
 	if ( listen(_TCP->m_listenSocket , BACK_LOG_CAPACITY) < 0 )
 	{
-		perror("Bind ServerConnect Failed.");
+		perror("Listen ServerConnect Failed.");
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-bool TCP_ServerConnect(TCP_t* _TCP)
+bool TCP_ServerConnect(TCP_S_t* _TCP)
 {
 	if (! IsStructValid(_TCP) )
 	{
@@ -267,7 +281,7 @@ bool TCP_ServerConnect(TCP_t* _TCP)
 	}
 }
 
-bool TCP_ClientConnect(TCP_t* _TCP)
+bool TCP_ClientConnect(TCP_S_t* _TCP)
 {
 	struct sockaddr_in client_sIn;
 	memset(&client_sIn , 0 , sizeof(client_sIn) );
@@ -286,7 +300,7 @@ bool TCP_ClientConnect(TCP_t* _TCP)
 	return TRUE;
 }
 
-bool TCP_ServerDisconnect(TCP_t* _TCP, uint _socketNum)
+bool TCP_ServerDisconnect(TCP_S_t* _TCP, uint _socketNum)
 {
 	if (! IsStructValid(_TCP) )
 	{
@@ -315,7 +329,7 @@ bool TCP_ServerDisconnect(TCP_t* _TCP, uint _socketNum)
 	return FALSE;
 }
 
-int TCP_DoServer(TCP_t* _TCP, actionFunc _appFunc)
+int TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
 {
 	char buffer[BUFFER_MAX_SIZE];
 	int resultSize = 0;
@@ -354,7 +368,7 @@ int TCP_DoServer(TCP_t* _TCP, actionFunc _appFunc)
 }
 
 
-int TCP_Send(TCP_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
+int TCP_Send(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
 {
 	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
 	{
@@ -378,7 +392,7 @@ int TCP_Send(TCP_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
 
 
 
-int TCP_Recive(TCP_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLength)
+int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLength)
 {
 	int nBytesRead;
 
@@ -412,7 +426,7 @@ int TCP_Recive(TCP_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLengt
 }
 
 
-int TCP_ClientGetSocket(TCP_t* _TCP)
+int TCP_ClientGetSocket(TCP_S_t* _TCP)
 {
 	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
 	{
@@ -428,12 +442,12 @@ int TCP_ClientGetSocket(TCP_t* _TCP)
 
 /* ~~~ Internal function  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-bool IsStructValid(TCP_t* _TCP)
+bool IsStructValid(TCP_S_t* _TCP)
 {
 	return !(NULL == _TCP || ALIVE_MAGIC_NUMBER != _TCP->m_magicNumber);
 }
 
-bool IsConnected(TCP_t* _TCP)
+bool IsConnected(TCP_S_t* _TCP)
 {
 	return (bool) _TCP->m_connectedNum;
 }

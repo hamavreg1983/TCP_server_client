@@ -14,7 +14,7 @@
 #include "tcp.h"
 
 /* global for sigaction */
-TCP_t* g_object2Destroy = NULL;
+TCP_S_t* g_object2Destroy = NULL;
 
 void sigAbortHandler(int dummy)
 {
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 	printf("--START--\n");
 
 	uint portNum = 4848;
-	TCP_t* server;
+	TCP_S_t* server;
 
 	struct sigaction psa;
 	psa.sa_handler = sigAbortHandler;

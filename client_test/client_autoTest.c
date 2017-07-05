@@ -19,9 +19,10 @@
 #define CLIENT_NUM 1500
 
 /* global for sigaction */
-TCP_t** g_object2Destroy = NULL;
+TCP_S_t** g_object2Destroy = NULL;
 
 void sanity_check(char* _string, uint _size, char _replaceWith);
+void RandomMSG(char* _msg, uint _maxLength);
 
 void sigAbortHandler(int dummy)
 {
@@ -47,7 +48,7 @@ int main(int argc, char* argv[])
 	int clientNum = CLIENT_NUM;
 	int socket;
 	int i;
-	TCP_t* clientContiner[CLIENT_NUM];
+	TCP_S_t* clientContiner[CLIENT_NUM];
 	g_object2Destroy = clientContiner;
 	float probabilty;
 
@@ -61,9 +62,8 @@ int main(int argc, char* argv[])
 		serverPort = atoi(argv[2]) ;
 	}
 
-	time_t t;
    /* Intializes random number generator */
-   srand((unsigned) time(&t));
+	srand((unsigned int) time(NULL));
 
 	printf("--START--\n");
 
@@ -73,7 +73,6 @@ int main(int argc, char* argv[])
 
 	}
 
-	strcpy(msg, "hello World");
 	int sent_bytes;
 	int recv_bytes;
 	while ( TRUE )
@@ -106,6 +105,8 @@ int main(int argc, char* argv[])
 					/* send recive */
 					socket = TCP_ClientGetSocket(clientContiner[i]);
 
+					RandomMSG(msg, MAX_MSG_SIZE);
+
 					sent_bytes = TCP_Send(clientContiner[i], socket, msg, strlen(msg) + 1 );
 					if (0 > sent_bytes)
 					{
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
 						recv_bytes = TCP_Recive(clientContiner[i], socket, buffer, MAX_MSG_SIZE);
 						if (0 == recv_bytes)
 						{
-							printf("server closed connection. exiting.\n");
+							printf("server closed connection. quitting client.\n");
 							TCP_DestroyClient(clientContiner[i]);
 							clientContiner[i] = NULL;
 							/* break; */
@@ -169,4 +170,24 @@ void sanity_check(char* _string, uint _size, char _replaceWith)
         j++;
     }
     return;
+}
+
+void RandomMSG(char* _msg, uint _maxLength)
+{
+	char header[] = "Start MSG:";
+	char spacer[] = "^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla^bla";
+	char footer[] = "END";
+
+	int probabilty = (rand()%30);
+
+	strcpy(_msg, header);
+	memcpy(_msg + sizeof(header)-1, spacer, probabilty);
+	memcpy(_msg + sizeof(header)-1 + probabilty, footer, sizeof(footer));
+
+	if (strlen(_msg) > _maxLength)
+	{
+		printf("i just overflowed my own content");
+		exit(3);
+	}
+	return;
 }
