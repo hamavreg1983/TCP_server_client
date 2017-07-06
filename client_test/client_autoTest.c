@@ -16,7 +16,7 @@
 #include "tcp.h"
 
 #define MAX_MSG_SIZE 1024
-#define CLIENT_NUM 1500
+#define CLIENT_NUM 1010
 
 /* global for sigaction */
 TCP_S_t** g_object2Destroy = NULL;

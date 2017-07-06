@@ -21,13 +21,14 @@ void sigAbortHandler(int dummy)
 	printf("\nFound Sig Cleaning and exit\n\n");
 	if (NULL != g_object2Destroy)
 	{
+		/* TODO do not destroy. set a flag that make you leave the loop */
 		TCP_DestroyServer(g_object2Destroy);
 	}
 
     _exit(2);
 }
 
-bool MyFunc(void* _data, size_t _sizeData, void* _contex)
+int MyFunc(void* _data, size_t _sizeData, void* _contex)
 {
 	printf("Recive:%s. \n", (char*) _data);
 	memcpy(_data, "!", 1);

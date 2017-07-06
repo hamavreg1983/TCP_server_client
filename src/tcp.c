@@ -25,9 +25,9 @@
 
 #define GENERAL_ERROR -1
 #define BACK_LOG_CAPACITY 128
-#define BUFFER_MAX_SIZE 1024
 
-#define MAX_CLIENTS_NUM 1000
+
+
 
 
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -237,13 +237,14 @@ bool TCP_ServerConnect(TCP_S_t* _TCP)
 		return FALSE;
 	}
 
-	/* too many open connections */
+	/* TODO loop around this function and accept a few or all waiting clients */
 
 	struct sockaddr_in sIn;
 	memset(&sIn , 0 , sizeof(sIn) );
 	uint addr_len;
 	addr_len = sizeof(sIn);
 	int socket;
+
 	socket = accept(_TCP->m_listenSocket,  (struct sockaddr *) &sIn, &addr_len ) ;
 
 	/* got real new socket but over capacity, so close connection */
@@ -265,7 +266,9 @@ bool TCP_ServerConnect(TCP_S_t* _TCP)
 		/* add new socket to list of sockets */
 		int* tmpSocket = malloc(sizeof(socket));
 		*tmpSocket = socket;
+		/* TODO check malloc didn't fail */
 		list_rpush(_TCP->m_sockets, list_node_new(tmpSocket));
+		/* check list didn't fail */
 
 		_TCP->m_connectedNum++;
 		return TRUE;
@@ -273,10 +276,12 @@ bool TCP_ServerConnect(TCP_S_t* _TCP)
 	else if ( IsFail_nonBlocking( socket) )
 	{ /* Failed accept link */
 		perror("TCP_ServerConnect accept Failed.");
+		/* TODO if failed, close socket. check also other function in this finction */
 		return FALSE;
 	}
 	else
 	{ /* no one on the other side */
+		/* TODO if failed, close socket. check also other function in this finction */
 		return FALSE;
 	}
 }
@@ -329,7 +334,7 @@ bool TCP_ServerDisconnect(TCP_S_t* _TCP, uint _socketNum)
 	return FALSE;
 }
 
-int TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
+bool TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
 {
 	char buffer[BUFFER_MAX_SIZE];
 	int resultSize = 0;
@@ -343,7 +348,7 @@ int TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
 	{
 		do {
 			TCP_ServerConnect(_TCP);
-		} while(! _TCP->m_connectedNum ); /* don't continue id there is not even one connection */
+		} while(! _TCP->m_connectedNum ); /* don't continue if there is not even one connection */
 
 		list_node_t *node;
 		list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
