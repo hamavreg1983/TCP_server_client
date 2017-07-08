@@ -23,12 +23,10 @@
 #define ALIVE_MAGIC_NUMBER	0xfadeface
 #define DEAD_MAGIC_NUMBER	0xdeadface
 
-#define GENERAL_ERROR -1
+#define GENERAL_ERROR -9
 #define BACK_LOG_CAPACITY 128
 
-
-
-
+/* ~~~ Global ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -44,7 +42,14 @@ struct TCP_S
 	int m_commSocket; /* used for client */
 
 	uint m_serverPort;
-	char m_serverIP[20];
+	char m_serverIP[INET6_ADDRSTRLEN];
+
+	bool m_isServerRun;
+
+	userActionFunc m_reciveDataFunc;
+	clientConnectionChangeFunc m_newConnectionFunc;
+	clientConnectionChangeFunc m_closedConnectionFunc;
+	errorFunc m_errorFunc;
 
 };
 
@@ -55,16 +60,31 @@ struct TCP_C
 	int m_commSocket; /* used for client */
 
 	uint m_serverPort;
-	char m_serverIP[20];
+	char m_serverIP[INET6_ADDRSTRLEN];
 
 };
 
 /* ~~~ Internal function forward declaration ~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+/**
+ * @brief when a new client is detected, this function is called and handles the connection on server side.
+ * @param _TCP pointer to the struct
+ * @return the status of return. TRUE when stopped normally or FALSE when failed
+ */
+bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP);
+
+/**
+ * @brief when a client has disconnected is detected, this function is called and handles the connection on server side.
+ * @param _TCP pointer to the struct
+ * @param _socketNum the connection number (file descriptor socket) which need to disconnect
+ * @return the status of return. TRUE when normally or FALSE when failed
+ */
+bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum);
+
+
+
 static bool IsStructValid(TCP_S_t* _TCP);
 static bool IsConnected(TCP_S_t* _TCP);
-
-bool TCP_ClientConnect(TCP_S_t* _TCP);
 
 static bool ServerSetup(TCP_S_t* _TCP);
 static bool SetSocketBlockingEnabled(int fd, bool blocking);
@@ -74,9 +94,20 @@ static void sanity_check(char* _string, uint _size, char _replaceWith);
 
 /* ~~~ API function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-TCP_S_t* TCP_CreateServer(uint _port)
+TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnections,
+		userActionFunc _reciveDataFunc,
+		clientConnectionChangeFunc _newClientConnected,
+		clientConnectionChangeFunc _clientDissconected,
+		errorFunc _errorFunc
+		)
 {
 	TCP_S_t* aTCP = 0;
+
+	if (_reciveDataFunc == NULL)
+	{
+		return NULL;
+	}
+
 	aTCP = malloc(1 * sizeof(TCP_S_t) );
 	if (!aTCP)
 	{
@@ -84,19 +115,24 @@ TCP_S_t* TCP_CreateServer(uint _port)
 		return NULL;
 	}
 
+	if (_serverIP != NULL)
+	{
+		strncpy(aTCP->m_serverIP , _serverIP , INET6_ADDRSTRLEN);
+	}
+	else
+	{
+		aTCP->m_serverIP[0] = '\0';
+	}
+
 	aTCP->m_serverPort = _port;
 	aTCP->m_connectedNum = 0;
 	aTCP->m_commSocket = 0;
-	aTCP->m_connectionCapacity = MAX_CLIENTS_NUM;
+	aTCP->m_connectionCapacity = _maxConnections;
 
-	/* setSocket. */
-	aTCP->m_listenSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (SetSocketBlockingEnabled(aTCP->m_listenSocket, FALSE) < 0)
-	{
-		perror("Socket Failed");
-		free(aTCP);
-		return NULL;
-	}
+	aTCP->m_reciveDataFunc = _reciveDataFunc;
+	aTCP->m_newConnectionFunc = _newClientConnected;
+	aTCP->m_closedConnectionFunc = _clientDissconected;
+	aTCP->m_errorFunc = _errorFunc;
 
 	if (! ServerSetup(aTCP) )
 	{
@@ -109,45 +145,12 @@ TCP_S_t* TCP_CreateServer(uint _port)
 	if (! aTCP->m_sockets)
 	{
 		perror("List_Create Failed");
+		close(aTCP->m_listenSocket);
 		free(aTCP);
 		return NULL;
 	}
 
 	aTCP->m_magicNumber = ALIVE_MAGIC_NUMBER;
-
-	return aTCP;
-}
-
-TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
-{
-	TCP_S_t* aTCP = 0;
-	aTCP = malloc(1 * sizeof(TCP_S_t) );
-	if (!aTCP)
-	{
-		/* ERROR */
-		return NULL;
-	}
-
-	strcpy(aTCP->m_serverIP , _ServerIP);
-	aTCP->m_serverPort = _serverPort;
-	aTCP->m_connectedNum = 0;
-	aTCP->m_sockets = NULL;
-
-	aTCP->m_commSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (aTCP->m_commSocket < 0)
-	{
-		perror("CreateClient, Socket create Failed");
-		free(aTCP);
-		return NULL;
-	}
-	aTCP->m_magicNumber = ALIVE_MAGIC_NUMBER;
-
-	if (! TCP_ClientConnect(aTCP) )
-	{
-		perror("Socket Connect Failed");
-		free(aTCP);
-		return NULL;
-	}
 
 	return aTCP;
 }
@@ -180,29 +183,22 @@ void TCP_DestroyServer(TCP_S_t* _TCP)
 	return;
 }
 
-void TCP_DestroyClient(TCP_S_t* _TCP)
-{
-	if ( !IsStructValid(_TCP) )
-	{
-		return;
-	}
-
-	_TCP->m_magicNumber = DEAD_MAGIC_NUMBER;
-
-	close(_TCP->m_commSocket);
-
-	free(_TCP);
-	return;
-}
-
-
 bool ServerSetup(TCP_S_t* _TCP)
 {
+	/* setSocket. */
+	_TCP->m_listenSocket = socket(PF_INET, SOCK_STREAM, 0);
+	if (SetSocketBlockingEnabled(_TCP->m_listenSocket, FALSE) < 0)
+	{
+		perror("Socket Failed");
+		return FALSE;
+	}
+
 	/* Reusing port */
 	int optval = 1;
 	if ( setsockopt(_TCP->m_listenSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval) ) < 0)
 	{
 		perror("Socket setsockopt Failed");
+		close(_TCP->m_listenSocket);
 		return FALSE;
 	}
 
@@ -210,13 +206,19 @@ bool ServerSetup(TCP_S_t* _TCP)
 	struct sockaddr_in sIn;
 	memset(&sIn , 0 , sizeof(sIn) );
 	sIn.sin_family = AF_INET;
-	sIn.sin_addr.s_addr = INADDR_ANY;
+	if ( strlen(_TCP->m_serverIP) == 0)
+	{
+		sIn.sin_addr.s_addr = INADDR_ANY;
+	} else {
+		sIn.sin_addr.s_addr = inet_addr(_TCP->m_serverIP);
+	}
 	sIn.sin_port = htons(_TCP->m_serverPort);
 
 	/*Bind socket with address struct*/
 	if (0 < bind(_TCP->m_listenSocket, (struct sockaddr *) &sIn, sizeof(sIn)) )
 	{
 		perror("Bind ServerConnect Failed.");
+		close(_TCP->m_listenSocket);
 		return FALSE;
 	}
 
@@ -224,20 +226,19 @@ bool ServerSetup(TCP_S_t* _TCP)
 	if ( listen(_TCP->m_listenSocket , BACK_LOG_CAPACITY) < 0 )
 	{
 		perror("Listen ServerConnect Failed.");
+		close(_TCP->m_listenSocket);
 		return FALSE;
 	}
 
 	return TRUE;
 }
 
-bool TCP_ServerConnect(TCP_S_t* _TCP)
+bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP)
 {
 	if (! IsStructValid(_TCP) )
 	{
 		return FALSE;
 	}
-
-	/* TODO loop around this function and accept a few or all waiting clients */
 
 	struct sockaddr_in sIn;
 	memset(&sIn , 0 , sizeof(sIn) );
@@ -254,6 +255,11 @@ bool TCP_ServerConnect(TCP_S_t* _TCP)
     	printf("server has too many (%d) connection. dropping new socket #%d.\n", _TCP->m_connectedNum, socket);
 		#endif
 
+    	if(_TCP->m_errorFunc)
+    	{
+    		_TCP->m_errorFunc(TOO_MANY_CONNECTION, socket, NULL);
+    	}
+
 		close(socket);
 		return FALSE;
 	}
@@ -265,47 +271,42 @@ bool TCP_ServerConnect(TCP_S_t* _TCP)
 
 		/* add new socket to list of sockets */
 		int* tmpSocket = malloc(sizeof(socket));
+		if (tmpSocket == NULL)
+		{
+			close(socket);
+			return FALSE;
+		}
 		*tmpSocket = socket;
-		/* TODO check malloc didn't fail */
-		list_rpush(_TCP->m_sockets, list_node_new(tmpSocket));
-		/* check list didn't fail */
+		if (! list_rpush(_TCP->m_sockets, list_node_new(tmpSocket)) )
+		{
+			/* check list fail */
+			close(socket);
+			free(tmpSocket);
+			return FALSE;
+		}
 
 		_TCP->m_connectedNum++;
+
+		if (_TCP->m_newConnectionFunc)
+		{
+			/* if user provide a function to invoke when new client connected */
+			_TCP->m_newConnectionFunc(socket, NULL);
+		}
+
 		return TRUE;
 	}
 	else if ( IsFail_nonBlocking( socket) )
 	{ /* Failed accept link */
 		perror("TCP_ServerConnect accept Failed.");
-		/* TODO if failed, close socket. check also other function in this finction */
 		return FALSE;
 	}
 	else
-	{ /* no one on the other side */
-		/* TODO if failed, close socket. check also other function in this finction */
+	{ /* no one on the other side, all is well */
 		return FALSE;
 	}
 }
 
-bool TCP_ClientConnect(TCP_S_t* _TCP)
-{
-	struct sockaddr_in client_sIn;
-	memset(&client_sIn , 0 , sizeof(client_sIn) );
-
-	client_sIn.sin_family = AF_INET;
-	client_sIn.sin_addr.s_addr = inet_addr(_TCP->m_serverIP);
-	client_sIn.sin_port = htons(_TCP->m_serverPort);
-
-	if (connect(_TCP->m_commSocket, (struct sockaddr *) &client_sIn, sizeof(client_sIn)) < 0)
-	{
-		perror("Socket client connect Failed");
-		return FALSE;
-	}
-	_TCP->m_connectedNum++;
-
-	return TRUE;
-}
-
-bool TCP_ServerDisconnect(TCP_S_t* _TCP, uint _socketNum)
+bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 {
 	if (! IsStructValid(_TCP) )
 	{
@@ -324,31 +325,41 @@ bool TCP_ServerDisconnect(TCP_S_t* _TCP, uint _socketNum)
 		if ( *(int*)(node->val) == _socketNum)
 		{
 			/* found the socket looking to remove			 */
-			close(*(int*)(node->val));
 
+			if (_TCP->m_closedConnectionFunc)
+			{
+				/* if user provide a function to invoke when a client disconnect */
+				_TCP->m_closedConnectionFunc( (*(int*)(node->val)) , NULL);
+			}
+
+			close(*(int*)(node->val));
 			list_remove(_TCP->m_sockets, node);
 			_TCP->m_connectedNum--;
+
 			return TRUE;
 		}
 	}
 	return FALSE;
 }
 
-bool TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
+bool TCP_RunServer(TCP_S_t* _TCP)
 {
 	char buffer[BUFFER_MAX_SIZE];
 	int resultSize = 0;
 
-	if (! IsStructValid(_TCP) || NULL == _appFunc)
+	if (! IsStructValid(_TCP))
 	{
 		return FALSE;
 	}
 
-	while( TRUE )
+	_TCP->m_isServerRun = TRUE;
+
+	while( _TCP->m_isServerRun )
 	{
-		do {
-			TCP_ServerConnect(_TCP);
-		} while(! _TCP->m_connectedNum ); /* don't continue if there is not even one connection */
+		while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
+		{
+			/* keep on accepting all waiting client while there are some */
+		}
 
 		list_node_t *node;
 		list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
@@ -362,7 +373,8 @@ bool TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
 			}
 			else if (resultSize > 0)
 			{
-				_appFunc(buffer, resultSize, NULL);
+				_TCP->m_reciveDataFunc(buffer, resultSize, *(int*)(node->val), NULL);
+				/* _appFunc(buffer, resultSize, NULL); */
 
 				resultSize = TCP_Send(_TCP, *(int*)(node->val), buffer, resultSize);
 			}
@@ -372,6 +384,15 @@ bool TCP_DoServer(TCP_S_t* _TCP, actionFunc _appFunc)
 	return TRUE;
 }
 
+bool TCP_StopServer(TCP_S_t* _TCP)
+{
+	if (! IsStructValid(_TCP) || _TCP->m_isServerRun == FALSE)
+	{
+		return FALSE;
+	}
+	_TCP->m_isServerRun = FALSE;
+	return TRUE;
+}
 
 int TCP_Send(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
 {
@@ -418,7 +439,7 @@ int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLen
     	printf("socket #%d was closed on client side. disconnecting from server.\n", _socketNum);
 		#endif
 
-    	TCP_ServerDisconnect(_TCP, _socketNum);
+    	TCP_ServerDisconnectClient(_TCP, _socketNum);
     }
     else if ( IsFail_nonBlocking(nBytesRead) )
     {
@@ -431,16 +452,6 @@ int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLen
 }
 
 
-int TCP_ClientGetSocket(TCP_S_t* _TCP)
-{
-	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
-	{
-		return GENERAL_ERROR;
-	}
-
-
-	return _TCP->m_commSocket;
-}
 
 
 

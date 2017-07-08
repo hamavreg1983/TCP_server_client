@@ -13,30 +13,25 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "tcp.h"
+#include "tcp_client.h"
 
 #define MAX_MSG_SIZE 1024
 #define CLIENT_NUM 1010
 
 /* global for sigaction */
-TCP_S_t** g_object2Destroy = NULL;
+bool g_isClientRun = TRUE;
 
 void sanity_check(char* _string, uint _size, char _replaceWith);
 void RandomMSG(char* _msg, uint _maxLength);
 
 void sigAbortHandler(int dummy)
 {
-	int i;
-	printf("\nFound Sig Cleaning and exit\n\n");
-	if (NULL != g_object2Destroy)
-	{
-		for (i=0 ; i < CLIENT_NUM ; ++i)
-		{
-			TCP_DestroyClient(g_object2Destroy[i]);
-		}
-	}
+	const char notify[] = "\nGot Signal, lets Clean and exit\n\n";
+	write(STDOUT_FILENO, notify, strlen(notify));
 
-    _exit(2);
+	g_isClientRun = FALSE;
+
+    return;
 }
 
 int main(int argc, char* argv[])
@@ -46,10 +41,8 @@ int main(int argc, char* argv[])
 	char msg[MAX_MSG_SIZE];			/* Default value */
 	void* buffer[MAX_MSG_SIZE];
 	int clientNum = CLIENT_NUM;
-	int socket;
 	int i;
 	TCP_S_t* clientContiner[CLIENT_NUM];
-	g_object2Destroy = clientContiner;
 	float probabilty;
 
 	struct sigaction psa;
@@ -75,7 +68,7 @@ int main(int argc, char* argv[])
 
 	int sent_bytes;
 	int recv_bytes;
-	while ( TRUE )
+	while ( g_isClientRun )
 	{
 		printf("Loop test\n");
 		for (i = 0; i < clientNum; ++i)
@@ -103,18 +96,17 @@ int main(int argc, char* argv[])
 				else if(probabilty > 0.7)
 				{
 					/* send recive */
-					socket = TCP_ClientGetSocket(clientContiner[i]);
 
 					RandomMSG(msg, MAX_MSG_SIZE);
 
-					sent_bytes = TCP_Send(clientContiner[i], socket, msg, strlen(msg) + 1 );
+					sent_bytes = TCP_ClientSend(clientContiner[i], msg, strlen(msg) + 1 );
 					if (0 > sent_bytes)
 					{
 						printf("\nError. send %d bytes", sent_bytes);
 					}
 					else
 					{
-						recv_bytes = TCP_Recive(clientContiner[i], socket, buffer, MAX_MSG_SIZE);
+						recv_bytes = TCP_ClientRecive(clientContiner[i], buffer, MAX_MSG_SIZE);
 						if (0 == recv_bytes)
 						{
 							printf("server closed connection. quitting client.\n");
@@ -135,7 +127,6 @@ int main(int argc, char* argv[])
 	{
 		TCP_DestroyClient(clientContiner[i]);
 	}
-	g_object2Destroy = NULL;
 
 	printf("--END--\n");
 }

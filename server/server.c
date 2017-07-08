@@ -14,21 +14,36 @@
 #include "tcp.h"
 
 /* global for sigaction */
-TCP_S_t* g_object2Destroy = NULL;
+TCP_S_t* g_tcp = NULL;
 
+#define MAX_CONNECTIONS_ALLWAED 1000
+
+typedef void (*sigHandler)(int);
 void sigAbortHandler(int dummy)
 {
-	printf("\nFound Sig Cleaning and exit\n\n");
-	if (NULL != g_object2Destroy)
-	{
-		/* TODO do not destroy. set a flag that make you leave the loop */
-		TCP_DestroyServer(g_object2Destroy);
-	}
+	const char notify[] = "\nGot Signal, lets Clean and exit server\n\n";
+	write(STDERR_FILENO, notify, strlen(notify));
 
-    _exit(2);
+	TCP_StopServer(g_tcp);
+
+	return;
 }
 
-int MyFunc(void* _data, size_t _sizeData, void* _contex)
+bool signalHangelSet(sigHandler _func)
+{
+	if (NULL == _func)
+	{
+		return FALSE;
+	}
+	/* this way, the sigaction, it is not possible to transfer a pramater to the function. just use a global value */
+	struct sigaction psa;
+	psa.sa_handler = _func;
+	sigaction(SIGINT, &psa, NULL);
+
+	return TRUE;
+}
+
+int MyFunc(void* _data, size_t _sizeData, uint _socketNum, void* _contex)
 {
 	printf("Recive:%s. \n", (char*) _data);
 	memcpy(_data, "!", 1);
@@ -43,16 +58,14 @@ int main(int argc, char* argv[])
 	uint portNum = 4848;
 	TCP_S_t* server;
 
-	struct sigaction psa;
-	psa.sa_handler = sigAbortHandler;
-	sigaction(SIGINT, &psa, NULL);
+	signalHangelSet(sigAbortHandler);
 
-	server = TCP_CreateServer(portNum);
-	g_object2Destroy = server;
+	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, MyFunc, NULL, NULL, NULL);
+	g_tcp = server;
 
-	TCP_DoServer(server, MyFunc);
+	TCP_RunServer(server);
 
+	g_tcp = NULL;
 	TCP_DestroyServer(server);
-	g_object2Destroy = NULL;
 	printf("--END--\n");
 }
