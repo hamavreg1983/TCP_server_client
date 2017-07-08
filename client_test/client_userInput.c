@@ -5,12 +5,11 @@
  *      Author: uv
  */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "tcp.h"
+#include "tcp_client.h"
 
 #define MAX_MSG_SIZE 1024
 
@@ -23,7 +22,6 @@ int main(int argc, char* argv[])
 	char serverIP[16] = "127.0.0.1"; /* Default value */
 	char msg[MAX_MSG_SIZE];			/* Default value */
 	void* buffer[MAX_MSG_SIZE];
-	int socket;
 
 	if (argc == 3)
 	{
@@ -32,14 +30,13 @@ int main(int argc, char* argv[])
 	}
 
 	printf("--START--\n");
-	TCP_S_t* client;
+	TCP_C_t* client;
 	client = TCP_CreateClient(serverIP, serverPort);
 	if (!client)
 	{
 		printf("\nERROR. coud not connect to server ip %s port %d. \nNothing to do. user should re Run.\n\n", serverIP, serverPort);
 		return 1;
 	}
-	socket = TCP_ClientGetSocket(client);
 
 	int sent_bytes;
 	int recv_bytes;
@@ -56,14 +53,14 @@ int main(int argc, char* argv[])
 			break;
 		}
 
-		sent_bytes = TCP_Send(client, socket, msg, strlen(msg) + 1 );
+		sent_bytes = TCP_ClientSend(client, msg, strlen(msg) + 1 );
 		if (0 > sent_bytes)
 		{
 			printf("\nError. send %d bytes", sent_bytes);
 		}
 		else
 		{
-			recv_bytes = TCP_Recive(client, socket, buffer, MAX_MSG_SIZE);
+			recv_bytes = TCP_ClientRecive(client, buffer, MAX_MSG_SIZE);
 			if (0 == recv_bytes)
 			{
 				printf("\n server closed connection. exiting.");

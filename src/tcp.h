@@ -4,7 +4,7 @@
  *
  * @brief A TCP server and client ADT for future projects use.
  *
- * @bug TODO
+ * @bug not a possible TCP_SERVER_USER_ERROR were included.
  */
 
 #ifndef TCP_H_

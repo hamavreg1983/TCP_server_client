@@ -5,18 +5,15 @@
  *      Author: Yuval Hamberg
  */
 
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h> /* ADDRSELEN */
+/* #include <errno.h> */
+#include <unistd.h> /* close */
 
 #include "list.h"
-#include "tcp.h"
 #include "tcp_client.h"
 
 /* ~~~ Defines ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -31,34 +28,12 @@
 
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct TCP_S
-{
-	int m_magicNumber;
-
-	int m_connectionCapacity;
-	int m_connectedNum; /* count the amount of open connections */
-	int m_listenSocket;
-	list_t* m_sockets; /* list of sockets */
-
-	int m_commSocket; /* used for client */
-
-	uint m_serverPort;
-	char m_serverIP[INET6_ADDRSTRLEN];
-
-	bool m_isServerRun;
-
-	userActionFunc m_reciveDataFunc;
-	clientConnectionChangeFunc m_newConnectionFunc;
-	clientConnectionChangeFunc m_closedConnectionFunc;
-	errorFunc m_errorFunc;
-
-};
-
 struct TCP_C
 {
 	int m_magicNumber;
 
 	int m_commSocket; /* used for client */
+	int m_connectedNum; /* count the amount of open connections */
 
 	uint m_serverPort;
 	char m_serverIP[INET6_ADDRSTRLEN];
@@ -72,21 +47,23 @@ struct TCP_C
  * @param _TCP the pointer to the client struct
  * @return int that represent the file descriptor (socket) of this client
  */
-int TCP_ClientGetSocket(TCP_S_t* _TCP);
+int TCP_ClientGetSocket(TCP_C_t* _TCP);
 
-static bool IsStructValid(TCP_S_t* _TCP);
-static bool IsConnected(TCP_S_t* _TCP);
+static bool IsStructValid(TCP_C_t* _TCP);
+static bool IsConnected(TCP_C_t* _TCP);
 
-bool TCP_ClientConnect(TCP_S_t* _TCP);
+bool TCP_ClientConnect(TCP_C_t* _TCP);
+
+static void sanity_check(char* _string, uint _size, char _replaceWith);
 
 
 /* ~~~ API function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 
-TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
+TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 {
-	TCP_S_t* aTCP = 0;
-	aTCP = malloc(1 * sizeof(TCP_S_t) );
+	TCP_C_t* aTCP = 0;
+	aTCP = malloc(1 * sizeof(TCP_C_t) );
 	if (!aTCP)
 	{
 		/* ERROR */
@@ -96,7 +73,6 @@ TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 	strncpy(aTCP->m_serverIP , _ServerIP, INET6_ADDRSTRLEN);
 	aTCP->m_serverPort = _serverPort;
 	aTCP->m_connectedNum = 0;
-	aTCP->m_sockets = NULL;
 
 	aTCP->m_commSocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (aTCP->m_commSocket < 0)
@@ -118,7 +94,7 @@ TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 }
 
 
-void TCP_DestroyClient(TCP_S_t* _TCP)
+void TCP_DestroyClient(TCP_C_t* _TCP)
 {
 	if ( !IsStructValid(_TCP) )
 	{
@@ -135,7 +111,7 @@ void TCP_DestroyClient(TCP_S_t* _TCP)
 
 
 
-bool TCP_ClientConnect(TCP_S_t* _TCP)
+bool TCP_ClientConnect(TCP_C_t* _TCP)
 {
 	struct sockaddr_in client_sIn;
 	memset(&client_sIn , 0 , sizeof(client_sIn) );
@@ -156,7 +132,7 @@ bool TCP_ClientConnect(TCP_S_t* _TCP)
 
 
 
-int TCP_ClientGetSocket(TCP_S_t* _TCP)
+int TCP_ClientGetSocket(TCP_C_t* _TCP)
 {
 	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
 	{
@@ -166,29 +142,98 @@ int TCP_ClientGetSocket(TCP_S_t* _TCP)
 	return _TCP->m_commSocket;
 }
 
-int TCP_ClientSend(TCP_S_t* _TCP, void* _msg, uint _msgLength)
+int TCP_ClientSend(TCP_C_t* _TCP, void* _msg, uint _msgLength)
 {
-	return TCP_Send(_TCP, TCP_ClientGetSocket(_TCP), _msg, _msgLength);
+	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
+	{
+		return GENERAL_ERROR;
+	}
+	if ( NULL == _msg)
+	{
+		return GENERAL_ERROR;
+	}
+
+	int sent_bytes;
+	sent_bytes = send( _TCP->m_commSocket, _msg, _msgLength, 0 );
+
+	if (0 > sent_bytes)
+	{
+		perror("Send Failed");
+	}
+
+	return sent_bytes;
 }
 
-int TCP_ClientRecive(TCP_S_t* _TCP, void* _buffer, uint _bufferMaxLength)
+int TCP_ClientRecive(TCP_C_t* _TCP, void* _buffer, uint _bufferMaxLength)
 {
-	return TCP_Recive(_TCP, TCP_ClientGetSocket(_TCP), _buffer, _bufferMaxLength);
+	int nBytesRead;
+
+	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
+	{
+		return GENERAL_ERROR;
+	}
+	if ( NULL == _buffer)
+	{
+		return GENERAL_ERROR;
+	}
+
+    nBytesRead = recv( _TCP->m_commSocket, _buffer, _bufferMaxLength , 0 );
+
+    if (nBytesRead == 0)
+    {
+		#if !defined(NDEBUG) /* DEBUG */
+    	printf("socket #%d was closed on server side. should disconnect from server.\n", _TCP->m_commSocket);
+		#endif
+    }
+
+    sanity_check(_buffer, _bufferMaxLength, '_');
+
+    return nBytesRead;
 }
 
 
 /* ~~~ Internal function  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-bool IsStructValid(TCP_S_t* _TCP)
+bool IsStructValid(TCP_C_t* _TCP)
 {
 	return !(NULL == _TCP || ALIVE_MAGIC_NUMBER != _TCP->m_magicNumber);
 }
 
-bool IsConnected(TCP_S_t* _TCP)
+bool IsConnected(TCP_C_t* _TCP)
 {
 	return (bool) _TCP->m_connectedNum;
 }
 
+static void sanity_check(char* _string, uint _size, char _replaceWith)
+{
+    int j = 0;
+
+    while (j < _size)
+    {
+    	if ( 	(_string[j] <= 'z' && _string[j] >= 'a')
+			|| 	(_string[j] <= 'Z' && _string[j] >= 'A' )
+			||	(_string[j] <= '9' && _string[j] >= '0' )
+			|| 	_string[j] == ' '
+			|| 	_string[j] == '?'
+			|| 	_string[j] == '!'
+			|| 	_string[j] == '"'
+			|| 	_string[j] == '.'
+			|| 	_string[j] == ','
+			|| 	_string[j] == ':'
+			|| 	_string[j] == '\''
+			|| 	_string[j] == '\0'
+    		)
+    	{
+    		/* good char, do nothing */
+    	}
+    	else
+    	{
+    		_string[j] = _replaceWith ;
+        }
+        j++;
+    }
+    return;
+}
 
 
 

@@ -39,8 +39,6 @@ struct TCP_S
 	int m_listenSocket;
 	list_t* m_sockets; /* list of sockets */
 
-	int m_commSocket; /* used for client */
-
 	uint m_serverPort;
 	char m_serverIP[INET6_ADDRSTRLEN];
 
@@ -126,7 +124,6 @@ TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnection
 
 	aTCP->m_serverPort = _port;
 	aTCP->m_connectedNum = 0;
-	aTCP->m_commSocket = 0;
 	aTCP->m_connectionCapacity = _maxConnections;
 
 	aTCP->m_reciveDataFunc = _reciveDataFunc;
@@ -165,7 +162,6 @@ void TCP_DestroyServer(TCP_S_t* _TCP)
 	_TCP->m_magicNumber = DEAD_MAGIC_NUMBER;
 
 	/* close the socket */
-	close (_TCP->m_commSocket); /* not needed*/
 	close (_TCP->m_listenSocket);
 
 	if ( _TCP->m_sockets )

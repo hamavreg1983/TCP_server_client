@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 	void* buffer[MAX_MSG_SIZE];
 	int clientNum = CLIENT_NUM;
 	int i;
-	TCP_S_t* clientContiner[CLIENT_NUM];
+	TCP_C_t* clientContiner[CLIENT_NUM];
 	float probabilty;
 
 	struct sigaction psa;

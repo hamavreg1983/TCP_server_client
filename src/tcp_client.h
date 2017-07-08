@@ -4,7 +4,7 @@
  *
  * @brief A TCP client ADT for future projects use.
  *
- * @bug TODO
+ * @bug
  */
 
 #ifndef TCP_CLIENT_H_
@@ -16,15 +16,15 @@ typedef int bool;
 #define FALSE 0
 
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-typedef struct TCP_S TCP_S_t;
+typedef struct TCP_C TCP_C_t;
 
-TCP_S_t* TCP_CreateClient(char* _ServerIP, uint _serverPort);
+TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort);
 /**
  * @brief Cleans up and free after the program. This include the dissconect function inseide it.
  * @param _TCP pointer to the struct
  * @return void. silent fail.
  */
-void TCP_DestroyClient(TCP_S_t* _TCP);
+void TCP_DestroyClient(TCP_C_t* _TCP);
 
 
 /**
@@ -34,7 +34,7 @@ void TCP_DestroyClient(TCP_S_t* _TCP);
  * @param _msgLength the data send size.
  * @return positive number represent the number of bytes send. negative number represent error.
  */
-int TCP_ClientSend(TCP_S_t* _TCP, void* _msg, uint _msgLength);
+int TCP_ClientSend(TCP_C_t* _TCP, void* _msg, uint _msgLength);
 
 /**
  * @brief Function to invoke data read from clients without looping. just a singal read.
@@ -43,6 +43,6 @@ int TCP_ClientSend(TCP_S_t* _TCP, void* _msg, uint _msgLength);
  * @param _bufferMaxLength the data buffer max size.
  * @return positive number represent the number of bytes read. negative number represent error.
  */
-int TCP_ClientRecive(TCP_S_t* _TCP, void* _buffer, uint _bufferMaxLength);
+int TCP_ClientRecive(TCP_C_t* _TCP, void* _buffer, uint _bufferMaxLength);
 
 #endif /* TCP_CLIENT_H_ */
