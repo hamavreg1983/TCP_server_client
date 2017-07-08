@@ -50,7 +50,7 @@
 						<entry excluding="client_autoTest.c|client_userInput.c|client.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="client_test"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="list"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="server"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="tcp_nonBlockingVer.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -101,7 +101,7 @@
 						<entry excluding="client_autoTest.c|client_userInput.c|client.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="client_test"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="list"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="server"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="tcp_nonBlockingVer.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -156,7 +156,7 @@
 						<entry excluding="client_autoTest.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="client_test"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="list"/>
 						<entry excluding="server.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="server"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="tcp_nonBlockingVer.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -211,7 +211,7 @@
 						<entry excluding="client_userInput.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="client_test"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="list"/>
 						<entry excluding="server.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="server"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="tcp_nonBlockingVer.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

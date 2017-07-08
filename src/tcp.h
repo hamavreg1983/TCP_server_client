@@ -81,7 +81,10 @@ bool TCP_StopServer(TCP_S_t* _TCP);
  * @param _msgLength the data send size.
  * @return positive number represent the number of bytes send. negative number represent error.
  */
-int TCP_Send(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength);
+int TCP_SendWithChecks(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength);
+
+/* TODO comment */
+int TCP_Send(uint _socketNum, void* _msg, uint _msgLength);
 
 /**
  * @brief Function to invoke data read from clients without looping. just a singal read.
@@ -92,7 +95,6 @@ int TCP_Send(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength);
  * @return positive number represent the number of bytes read. negative number represent error.
  */
 int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLength);
-
 
 
 

@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
+#include <arpa/inet.h>    /* close */
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -25,6 +27,8 @@
 
 #define GENERAL_ERROR -9
 #define BACK_LOG_CAPACITY 128
+
+#define IS_NON_BLOCKING_METHOD FALSE
 
 /* ~~~ Global ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -51,17 +55,6 @@ struct TCP_S
 
 };
 
-struct TCP_C
-{
-	int m_magicNumber;
-
-	int m_commSocket; /* used for client */
-
-	uint m_serverPort;
-	char m_serverIP[INET6_ADDRSTRLEN];
-
-};
-
 /* ~~~ Internal function forward declaration ~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /**
@@ -79,7 +72,10 @@ bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP);
  */
 bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum);
 
-
+bool SelectServer(TCP_S_t* _TCP);
+bool NonBlockingServer(TCP_S_t* _TCP);
+int SetupSelect(int _listenSocket, list_t* _socketList, fd_set* _readfds);
+int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds);
 
 static bool IsStructValid(TCP_S_t* _TCP);
 static bool IsConnected(TCP_S_t* _TCP);
@@ -183,10 +179,13 @@ bool ServerSetup(TCP_S_t* _TCP)
 {
 	/* setSocket. */
 	_TCP->m_listenSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (SetSocketBlockingEnabled(_TCP->m_listenSocket, FALSE) < 0)
+	if (IS_NON_BLOCKING_METHOD == TRUE)
 	{
-		perror("Socket Failed");
-		return FALSE;
+		if (SetSocketBlockingEnabled(_TCP->m_listenSocket, FALSE) < 0)
+		{
+			perror("Socket Failed");
+			return FALSE;
+		}
 	}
 
 	/* Reusing port */
@@ -263,7 +262,10 @@ bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP)
 	if (socket > 0)
 	{ /* Success accept link */
 
-		SetSocketBlockingEnabled(socket, FALSE);
+		if (IS_NON_BLOCKING_METHOD == TRUE)
+		{
+			SetSocketBlockingEnabled(socket, FALSE);
+		}
 
 		/* add new socket to list of sockets */
 		int* tmpSocket = malloc(sizeof(socket));
@@ -340,13 +342,25 @@ bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 
 bool TCP_RunServer(TCP_S_t* _TCP)
 {
-	char buffer[BUFFER_MAX_SIZE];
-	int resultSize = 0;
-
 	if (! IsStructValid(_TCP))
 	{
 		return FALSE;
 	}
+
+	if (IS_NON_BLOCKING_METHOD == TRUE)
+	{
+		return NonBlockingServer(_TCP);
+	}
+	else
+	{
+		return SelectServer(_TCP);
+	}
+}
+
+bool NonBlockingServer(TCP_S_t* _TCP)
+{
+	char buffer[BUFFER_MAX_SIZE];
+	int resultSize = 0;
 
 	_TCP->m_isServerRun = TRUE;
 
@@ -370,9 +384,6 @@ bool TCP_RunServer(TCP_S_t* _TCP)
 			else if (resultSize > 0)
 			{
 				_TCP->m_reciveDataFunc(buffer, resultSize, *(int*)(node->val), NULL);
-				/* _appFunc(buffer, resultSize, NULL); */
-
-				resultSize = TCP_Send(_TCP, *(int*)(node->val), buffer, resultSize);
 			}
 		}
 	}
@@ -390,12 +401,18 @@ bool TCP_StopServer(TCP_S_t* _TCP)
 	return TRUE;
 }
 
-int TCP_Send(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
+int TCP_SendWithChecks(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
 {
 	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
 	{
 		return GENERAL_ERROR;
 	}
+
+	return TCP_Send(_socketNum, _msg, _msgLength);
+}
+
+int TCP_Send(uint _socketNum, void* _msg, uint _msgLength)
+{
 	if ( NULL == _msg)
 	{
 		return GENERAL_ERROR;
@@ -431,24 +448,147 @@ int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLen
 
     if (nBytesRead == 0)
     {
-		#if !defined(NDEBUG) /* DEBUG */
+		/* #if !defined(NDEBUG)
     	printf("socket #%d was closed on client side. disconnecting from server.\n", _socketNum);
-		#endif
+		#endif */
 
-    	TCP_ServerDisconnectClient(_TCP, _socketNum);
+    	/* TCP_ServerDisconnectClient(_TCP, _socketNum); */
     }
     else if ( IsFail_nonBlocking(nBytesRead) )
     {
     	perror("Read Failed.");
     }
-
-    sanity_check(_buffer, _bufferMaxLength, '_');
+    else
+    { /* good read value */
+    	sanity_check(_buffer, _bufferMaxLength, '_');
+    }
 
     return nBytesRead;
 }
 
+bool SelectServer(TCP_S_t* _TCP)
+{
+	int activity , sd;
+	int max_sd;
 
+	//set of socket descriptors
+	fd_set readfds;
 
+	//if valid socket descriptor then add to read list
+	FD_SET( sd , &readfds);
+
+	_TCP->m_isServerRun = TRUE;
+	while( _TCP->m_isServerRun )
+	{
+		max_sd = SetupSelect( _TCP->m_listenSocket, _TCP->m_sockets, &readfds);
+
+		//wait for an activity on one of the sockets , timeout is NULL ,
+		//so wait indefinitely
+		activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
+
+		if ((activity < 0) && (errno!=EINTR)) /* change to my fucntion that check if real failed */
+		{
+			perror("select error");
+			return FALSE;
+		}
+
+		//If something happened on the master socket ,
+		//then its an incoming connection
+		if (FD_ISSET(_TCP->m_listenSocket, &readfds))
+		{
+			/* call server connect function */
+			if (IS_NON_BLOCKING_METHOD == FALSE)
+			{
+				TCP_Server_ConnectNewClient(_TCP);
+			}
+			else
+			{
+				while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
+				{
+					/* keep on accepting all waiting client while there are some */
+				}
+			}
+		}
+
+		/* find the sockets that woke the selector, read from it and activate user function */
+		ReadFromSelect(_TCP, &readfds);
+	}
+
+	return TRUE;
+}
+
+int SetupSelect(int _listenSocket, list_t* _socketList, fd_set* _readfds)
+{
+	int max_sd, sd;
+	list_iterator_t* itr;
+	list_node_t *node;
+
+	//clear the socket set
+	FD_ZERO(_readfds);
+
+	//add master socket to set
+	FD_SET(_listenSocket, _readfds);
+	max_sd = _listenSocket;
+
+	//add child sockets to set
+	itr = list_iterator_new(_socketList, LIST_HEAD);
+	while ((node = list_iterator_next(itr)))
+	{
+		//socket descriptor
+		sd = *(int*)(node->val);
+
+		//if valid socket descriptor then add to read list
+		FD_SET( sd , _readfds);
+
+		//highest file descriptor number, need it for the select function
+		if(sd > max_sd)
+		{
+			max_sd = sd;
+		}
+	}
+	return max_sd;
+}
+
+int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
+{
+	int sd;
+	int resultSize;
+	list_iterator_t* itr;
+	list_node_t *node;
+	char buffer[BUFFER_MAX_SIZE];
+
+	//else its some IO operation on some other socket
+	itr = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
+	while ((node = list_iterator_next(itr)))
+	{
+		sd = *(int*)(node->val);
+
+		if (FD_ISSET( sd , _readfds))
+		{
+			/* found the socket that woke */
+			resultSize = TCP_Recive(_TCP, *(int*)(node->val), buffer, BUFFER_MAX_SIZE);
+			if (resultSize == 0)
+			{
+				/* socket was closed */
+				if (! TCP_ServerDisconnectClient(_TCP, sd) )
+				{
+					perror("problam removing empty client");
+				}
+			}
+			else if (resultSize > 0)
+			{
+				_TCP->m_reciveDataFunc(buffer, resultSize, *(int*)(node->val), NULL);
+			}
+			else
+			{
+				/* Do nothing. it was dealt with.
+				 *perror("Error");
+				 */
+			}
+		}
+	}
+	return TRUE;
+}
 
 
 

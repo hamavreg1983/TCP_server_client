@@ -48,6 +48,12 @@ int MyFunc(void* _data, size_t _sizeData, uint _socketNum, void* _contex)
 	printf("Recive:%s. \n", (char*) _data);
 	memcpy(_data, "!", 1);
 
+	if ( TCP_Send(_socketNum, _data, _sizeData) <= 0)
+	{
+		perror("Send response from server failed.\n");
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
