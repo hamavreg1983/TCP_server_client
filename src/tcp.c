@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-/* #include <sys/time.h> */ /* FD_SET, FD_ISSET, FD_ZERO macros , timeout */
+#include <sys/time.h>  /* FD_SET, FD_ISSET, FD_ZERO macros , timeval */
 #include <sys/select.h>
 #include <arpa/inet.h>    /* close */
 #include <string.h>
@@ -62,7 +62,7 @@ struct TCP_S
 typedef struct SocketInfo
 {
 	int m_socketNum;
-	unsigned long int m_timeToDie;
+	struct timeval m_timeToDie;
 } SocketInfo_t ;
 
 /* ~~~ Internal function forward declaration ~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -228,8 +228,8 @@ static bool NonBlockingServer(TCP_S_t* _TCP)
 		}
 
 		list_node_t *node;
-		list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
-		while ((node = list_iterator_next(it)))
+		list_iterator_t *itr = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
+		while ((node = list_iterator_next(itr)))
 		{
 			resultSize = TCP_Recive(*(int*)(node->val), buffer, BUFFER_MAX_SIZE);
 			if (resultSize == 0)
@@ -493,7 +493,7 @@ static bool MoveNodeToHead(list_t* _socketsContiner, list_node_t* node, uint _ti
 	/* TODO Calclulate and add timeout */
 
 	/* add socket to list of sockets at head */
-	int* tmpSocket = malloc(sizeof(socketTemp));
+	int* tmpSocket = malloc(sizeof(SocketInfo_t));
 	if (tmpSocket == NULL)
 	{
 		return FALSE;
@@ -518,10 +518,16 @@ static bool SelectServer(TCP_S_t* _TCP)
 	fd_set readfds;
 
 	struct timeval timeout = {600, 0};
+	struct timeval currentTime;
 
 	_TCP->m_isServerRun = TRUE;
 	while( _TCP->m_isServerRun )
 	{
+		if ( gettimeofday(&currentTime, NULL) )
+		{
+			perror("failed to get time.\n");
+		}
+
 		ShouldKillClient(_TCP);
 
 		timeout.tv_sec = _TCP->m_timeoutMS/1000;
@@ -578,6 +584,7 @@ static int SetupSelect(int _listenSocket, list_t* _socketList, fd_set* _readfds)
 	//add master socket to set
 	FD_SET(_listenSocket, _readfds);
 	max_sd = _listenSocket;
+	FD_SET(0, _readfds);
 
 	//add child sockets to set
 	itr = list_iterator_new(_socketList, LIST_HEAD);

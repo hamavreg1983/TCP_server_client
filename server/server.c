@@ -18,8 +18,8 @@ TCP_S_t* g_tcp = NULL;
 
 #define MAX_CONNECTIONS_ALLWAED 1000
 
-typedef void (*sigHandler)(int);
-void sigAbortHandler(int dummy)
+typedef void (*sigHandler)(int sig, siginfo_t *siginfo, void *context);
+void sigAbortHandler(int sig, siginfo_t *siginfo, void *context)
 {
 	const char notify[] = "\nGot Signal, lets Clean and exit server\n\n";
 	write(STDERR_FILENO, notify, strlen(notify));
@@ -36,9 +36,19 @@ bool signalHangelSet(sigHandler _func)
 		return FALSE;
 	}
 	/* this way, the sigaction, it is not possible to transfer a pramater to the function. just use a global value */
-	struct sigaction psa;
-	psa.sa_handler = _func;
-	sigaction(SIGINT, &psa, NULL);
+
+	struct sigaction act;
+	memset (&act, '\0', sizeof(act));
+
+	/* Use the sa_sigaction field because the handles has two additional parameters */
+	act.sa_sigaction = _func;
+	/* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
+	act.sa_flags = SA_SIGINFO;
+
+	if (sigaction(SIGINT, &act, NULL) < 0) {
+		perror ("SIGINT");
+		return 1;
+	}
 
 	return TRUE;
 }
