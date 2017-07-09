@@ -25,12 +25,16 @@
 
 #define ALIVE_MAGIC_NUMBER	0xfadeface
 #define DEAD_MAGIC_NUMBER	0xdeadface
+#define SI_MAGIC_NUMBER	0xdeaddead
 
 #define GENERAL_ERROR -9
 #define BACK_LOG_CAPACITY 128
 
 /* This server can work on two methods. if TRUE a busy-wait read would occur. if FALSE a select waiting on all socket would occur. */
 #define IS_NON_BLOCKING_METHOD FALSE
+
+typedef struct timeval timeval_t;
+
 
 /* ~~~ Global ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -61,8 +65,10 @@ struct TCP_S
 
 typedef struct SocketInfo
 {
-	int m_socketNum;
-	struct timeval m_timeToDie;
+	int m_magicNumber;
+
+	int m_socketFD;
+	timeval_t m_timeToDie;
 } SocketInfo_t ;
 
 /* ~~~ Internal function forward declaration ~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -95,7 +101,16 @@ static bool SetSocketBlockingEnabled(int fd, bool blocking);
 static bool IsFail_nonBlocking(int _result);
 
 static bool MoveNodeToHead(list_t* _socketsContiner, list_node_t* node, uint _timeoutMS);
-static bool ShouldKillClient(TCP_S_t* _TCP);
+static bool KillOldestClient(TCP_S_t* _TCP);
+static timeval_t DealWithTimeout(TCP_S_t* _TCP);
+
+static SocketInfo_t* CreateSocketInfo(int _socket, uint _timeoutMS);
+static void DestorySocketInfo(SocketInfo_t* _SI);
+static int getSocket(list_node_t* _node);
+static int setSocket(list_node_t* _node, int _socketNum);
+static timeval_t getTimeout(list_node_t* _node);
+static timeval_t setTimeout(list_node_t* _node, timeval_t _when2die);
+static timeval_t WhenIsTime2Die(uint _timeoutMS);
 
 static void sanity_check(char* _string, uint _size, char _replaceWith);
 
@@ -176,11 +191,12 @@ void TCP_DestroyServer(TCP_S_t* _TCP)
 
 	if ( _TCP->m_sockets )
 	{
-		list_node_t *node;
+		list_node_t* node;
 		list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
 		while ((node = list_iterator_next(it)))
 		{
-			close (*(int*)(node->val));
+			/* close (*(int*)(node->val)); */
+			close ( getSocket(node) );
 		}
 		list_destroy(_TCP->m_sockets);
 	}
@@ -197,11 +213,6 @@ bool TCP_RunServer(TCP_S_t* _TCP)
 	}
 
 	printf("Server is Ready. Waiting for clients...\n");
-
-	if (! IsStructValid(_TCP))
-	{
-		return FALSE;
-	}
 
 	if (IS_NON_BLOCKING_METHOD == TRUE)
 	{
@@ -231,7 +242,7 @@ static bool NonBlockingServer(TCP_S_t* _TCP)
 		list_iterator_t *itr = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
 		while ((node = list_iterator_next(itr)))
 		{
-			resultSize = TCP_Recive(*(int*)(node->val), buffer, BUFFER_MAX_SIZE);
+			resultSize = TCP_Recive( getSocket(node) , buffer, BUFFER_MAX_SIZE);
 			if (resultSize == 0)
 			{
 				/* socket was closed */
@@ -239,7 +250,7 @@ static bool NonBlockingServer(TCP_S_t* _TCP)
 			}
 			else if (resultSize > 0)
 			{
-				_TCP->m_reciveDataFunc(buffer, resultSize, *(int*)(node->val), NULL);
+				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node) , NULL);
 			}
 		}
 	}
@@ -382,6 +393,7 @@ static bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP)
 	uint addr_len;
 	addr_len = sizeof(sIn);
 	int socket;
+	SocketInfo_t* aSI;
 
 	socket = accept(_TCP->m_listenSocket,  (struct sockaddr *) &sIn, &addr_len ) ;
 
@@ -409,19 +421,20 @@ static bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP)
 			SetSocketBlockingEnabled(socket, FALSE);
 		}
 
+
 		/* add new socket to list of sockets */
-		int* tmpSocket = malloc(sizeof(SocketInfo_t));
-		if (tmpSocket == NULL)
+		aSI = CreateSocketInfo(socket, _TCP->m_timeoutMS);
+		if (!aSI)
 		{
 			close(socket);
 			return FALSE;
 		}
-		*tmpSocket = socket;
-		if (! list_rpush(_TCP->m_sockets, list_node_new(tmpSocket)) )
+
+		if (! list_rpush(_TCP->m_sockets, list_node_new(aSI)) )
 		{
 			/* check list fail */
 			close(socket);
-			free(tmpSocket);
+			DestorySocketInfo(aSI);
 			return FALSE;
 		}
 
@@ -454,25 +467,27 @@ static bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 	}
 	if (NULL == _TCP->m_sockets)
 	{
-		/* no list means its client and not server */
+		/* no list means big probalmes */
 		return FALSE;
 	}
 
+	/* TODO for better preformance search from tail to head as most of the sockes to remove are at the tail */
 	list_node_t *node;
 	list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
 	while ((node = list_iterator_next(it)))
 	{
-		if ( *(int*)(node->val) == _socketNum)
+		if ( getSocket(node) == _socketNum)
 		{
 			/* found the socket looking to remove			 */
 
 			if (_TCP->m_closedConnectionFunc)
 			{
 				/* if user provide a function to invoke when a client disconnect */
-				_TCP->m_closedConnectionFunc( (*(int*)(node->val)) , NULL);
+				_TCP->m_closedConnectionFunc( getSocket(node) , NULL);
 			}
 
-			close(*(int*)(node->val));
+			close( getSocket(node) );
+			DestorySocketInfo(node->val); /* TODO might cause a core dump in next line */
 			list_remove(_TCP->m_sockets, node);
 			_TCP->m_connectedNum--;
 
@@ -484,29 +499,51 @@ static bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 
 static bool MoveNodeToHead(list_t* _socketsContiner, list_node_t* node, uint _timeoutMS)
 {
+	list_node_t* newNode;
+	SocketInfo_t* SI;
+
 	/* store value */
-	int socketTemp = (*(int*)(node->val));
+	int socketTemp = getSocket(node);
+	SI = node->val;
+	node->val = NULL;
 
 	/* remove old node */
 	list_remove(_socketsContiner, node);
 
-	/* TODO Calclulate and add timeout */
+	//setTimeout(node, WhenIsTime2Die(_timeoutMS) );
+
+	/* TODO does the above line fits with the one below?! */
 
 	/* add socket to list of sockets at head */
-	int* tmpSocket = malloc(sizeof(SocketInfo_t));
-	if (tmpSocket == NULL)
-	{
-		return FALSE;
-	}
-	*tmpSocket = socketTemp;
-	if (! list_lpush(_socketsContiner, list_node_new(tmpSocket)) )
+//	aSI = CreateSocketInfo(socketTemp, _timeoutMS);
+//	if (!aSI)
+//	{
+//		return FALSE;
+//	}
+
+	/* create new node with old data */
+	newNode = list_node_new(SI);
+	/* Calculate and update timeout */
+	setTimeout(newNode, WhenIsTime2Die(_timeoutMS) );
+
+	if (! list_lpush(_socketsContiner, newNode ) )
 	{
 		/* check list fail */
-		free(tmpSocket);
+		close( socketTemp);
+		DestorySocketInfo(SI);
 		return FALSE;
 	}
 
 	return TRUE;
+}
+
+static timeval_t setTimeout(list_node_t* _node, timeval_t _when2die)
+{
+	SocketInfo_t* tempSocketInfo = _node->val;
+
+	tempSocketInfo->m_timeToDie = _when2die;
+
+	return tempSocketInfo->m_timeToDie;
 }
 
 static bool SelectServer(TCP_S_t* _TCP)
@@ -517,27 +554,20 @@ static bool SelectServer(TCP_S_t* _TCP)
 	//set of socket descriptors
 	fd_set readfds;
 
-	struct timeval timeout = {600, 0};
-	struct timeval currentTime;
+	timeval_t when2wakeup;
 
 	_TCP->m_isServerRun = TRUE;
 	while( _TCP->m_isServerRun )
 	{
-		if ( gettimeofday(&currentTime, NULL) )
-		{
-			perror("failed to get time.\n");
-		}
 
-		ShouldKillClient(_TCP);
-
-		timeout.tv_sec = _TCP->m_timeoutMS/1000;
-		timeout.tv_usec = 0;
+		when2wakeup = DealWithTimeout(_TCP); /* close sockets that are open for longer than timeout */
+		KillOldestClient(_TCP); /* if capacity is full, close oldest connections */
 
 		max_sd = SetupSelect( _TCP->m_listenSocket, _TCP->m_sockets, &readfds);
 
 		//wait for an activity on one of the sockets , timeout is NULL ,
 		//so wait indefinitely
-		activity = select( max_sd + 1 , &readfds , NULL , NULL , &timeout);
+		activity = select( max_sd + 1 , &readfds , NULL , NULL , &when2wakeup);
 
 		if ((activity < 0) && (errno!=EINTR)) /* change to my function that check if real failed */
 		{
@@ -546,8 +576,7 @@ static bool SelectServer(TCP_S_t* _TCP)
 		}
 		else if (activity == 0)
 		{
-			/* select timeout. */
-			/* TODO remove tail of list? */
+			/* select woke-up because of timeout. */
 
 		}
 		else{
@@ -572,6 +601,47 @@ static bool SelectServer(TCP_S_t* _TCP)
 	return TRUE;
 }
 
+static timeval_t DealWithTimeout(TCP_S_t* _TCP)
+{
+	timeval_t currentTime;
+	timeval_t time2die;
+	timeval_t when2wakeup = {60,0}; /* if list is empty this defualt value would be used as max sleep time */
+	list_node_t* tailNode;
+
+	if ( gettimeofday(&currentTime, NULL) )
+	{
+		perror("failed to get time.\n");
+	}
+
+	while (	(tailNode = list_at(_TCP->m_sockets, -1) ) != NULL)
+	{
+		/* test tailNode is not endNode = list is empty */
+
+		time2die = getTimeout(tailNode);
+		timersub(&time2die, &currentTime, &when2wakeup);
+
+		if ( timercmp(&time2die, &currentTime, >) )
+		{
+			/* time2die is later than current time */
+			/* just return when to wakeup */
+
+			return when2wakeup;
+		}
+		else
+		{
+			/* last node socket should be removed */
+			if (! TCP_ServerDisconnectClient(_TCP, getSocket(tailNode) ) )
+			{
+				perror("Can't remove at ShouldKillClient");
+			}
+
+			/* recursive loop until no more nodes to kill because of time */
+
+		}
+	}
+	return when2wakeup;
+}
+
 static int SetupSelect(int _listenSocket, list_t* _socketList, fd_set* _readfds)
 {
 	int max_sd, sd;
@@ -591,7 +661,7 @@ static int SetupSelect(int _listenSocket, list_t* _socketList, fd_set* _readfds)
 	while ((node = list_iterator_next(itr)))
 	{
 		//socket descriptor
-		sd = *(int*)(node->val);
+		sd = getSocket(node);
 
 		//if valid socket descriptor then add to read list
 		FD_SET( sd , _readfds);
@@ -617,23 +687,23 @@ static int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
 	itr = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
 	while ((node = list_iterator_next(itr)))
 	{
-		sd = *(int*)(node->val);
+		sd = getSocket(node);
 
 		if (FD_ISSET( sd , _readfds))
 		{
 			/* found the socket that woke */
-			resultSize = TCP_Recive(*(int*)(node->val), buffer, BUFFER_MAX_SIZE);
+			resultSize = TCP_Recive( getSocket(node), buffer, BUFFER_MAX_SIZE);
 			if (resultSize == 0)
 			{
 				/* socket was closed */
 				if (! TCP_ServerDisconnectClient(_TCP, sd) )
 				{
-					perror("problam removing empty client");
+					perror("Problem removing empty client");
 				}
 			}
 			else if (resultSize > 0)
 			{
-				_TCP->m_reciveDataFunc(buffer, resultSize, *(int*)(node->val), NULL);
+				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node), NULL);
 				if (! MoveNodeToHead(_TCP->m_sockets, node, _TCP->m_timeoutMS) )
 				{
 					perror("Error UpdateSocketTimeout.\n");
@@ -650,7 +720,7 @@ static int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
 	return TRUE;
 }
 
-static bool ShouldKillClient(TCP_S_t* _TCP)
+static bool KillOldestClient(TCP_S_t* _TCP)
 {
 	/* TODO remove hardcoded value */
 
@@ -659,13 +729,94 @@ static bool ShouldKillClient(TCP_S_t* _TCP)
 		/* server is almost full. lets disconnects the oldest connections */
 		list_node_t* tailNode = list_at(_TCP->m_sockets, -1);
 
-		if (! TCP_ServerDisconnectClient(_TCP, (*(int*)(tailNode->val) ) ) )
+		if (! TCP_ServerDisconnectClient(_TCP, getSocket(tailNode) ) )
 		{
 			perror("Can't remove at ShouldKillClient");
 		}
 	}
 
 	return TRUE;
+}
+
+static SocketInfo_t* CreateSocketInfo(int _socket, uint _timeoutMS)
+{
+	SocketInfo_t* aSI = malloc(1 * sizeof(SocketInfo_t) );
+	if (! aSI)
+	{
+		return NULL;
+	}
+
+	aSI->m_socketFD = _socket;
+	aSI->m_timeToDie = WhenIsTime2Die(_timeoutMS);
+
+	aSI->m_magicNumber = SI_MAGIC_NUMBER;
+
+	return aSI;
+}
+
+static void DestorySocketInfo(SocketInfo_t* _SI)
+{
+	if (NULL == _SI || _SI->m_magicNumber != SI_MAGIC_NUMBER)
+	{
+		return;
+	}
+
+	_SI->m_magicNumber = -1;
+	close(_SI->m_socketFD);
+	free(_SI);
+	return;
+}
+
+static int getSocket(list_node_t* _node)
+{
+	if (NULL == _node)
+	{
+		return -1;
+	}
+
+	SocketInfo_t* tempSocketInfo = _node->val;
+	return tempSocketInfo->m_socketFD;
+}
+
+static int setSocket(list_node_t* _node, int _socketNum)
+{
+	if (NULL == _node)
+	{
+		return -1;
+	}
+
+	SocketInfo_t* tempSocketInfo = _node->val;
+	tempSocketInfo->m_socketFD = _socketNum;
+	return tempSocketInfo->m_socketFD;
+}
+
+static timeval_t getTimeout(list_node_t* _node)
+{
+		if (NULL == _node)
+		{
+			timeval_t temp = {0,0};
+			return temp;
+		}
+
+		SocketInfo_t* tempSocketInfo = _node->val;
+		return tempSocketInfo->m_timeToDie;
+}
+
+static timeval_t WhenIsTime2Die(uint _timeoutMS)
+{
+	timeval_t currentTime;
+	timeval_t timeout;
+	timeval_t time2die;
+
+	if ( gettimeofday(&currentTime, NULL) )
+	{
+		perror ( "Can't get current time.\n" );
+	}
+	timeout.tv_sec = _timeoutMS/1000;
+
+	timeradd(&currentTime, &timeout, &time2die);
+
+	return time2die;
 }
 
 /** Returns true on success, or false if there was an error */

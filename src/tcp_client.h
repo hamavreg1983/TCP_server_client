@@ -18,7 +18,16 @@ typedef int bool;
 /* ~~~ Struct ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 typedef struct TCP_C TCP_C_t;
 
+
+/**
+ * @brief Create all is needed for a TCP client to connect to the server
+ * @param _ServerIP the ip address (ipv4 or ipv6) of the server
+ * @param _serverPort the listning for new connection port on the server
+ * @return pointer to the newly create struct
+ */
 TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort);
+
+
 /**
  * @brief Cleans up and free after the program. This include the dissconect function inseide it.
  * @param _TCP pointer to the struct

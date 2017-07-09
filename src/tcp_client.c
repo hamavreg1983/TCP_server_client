@@ -97,6 +97,7 @@ TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 	if (! TCP_ClientConnect(aTCP) )
 	{
 		perror("Socket Connect Failed");
+		close(aTCP->m_commSocket);
 		free(aTCP);
 		return NULL;
 	}

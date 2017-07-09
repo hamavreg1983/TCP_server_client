@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 
 	uint portNum = 4848;
 	TCP_S_t* server;
-	uint timeoutMS = 1000;
+	uint timeoutMS = 300000; /* 5 min */
 
 	/* TODO option get ip and port from agrc */
 

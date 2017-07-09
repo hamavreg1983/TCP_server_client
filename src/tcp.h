@@ -41,6 +41,7 @@ typedef struct TCP_S TCP_S_t;
  * @param _port the server listing port for new client connections.
  * @param _serverIP The server IP address in case of a few interfaces for the same computer. Can be left NULL for defualt ip selected.
  * @param _maxConnections if more connection than this number are simultansly try to connect, clients would be dealt and probably droped.
+ * @param _timeoutMS any connection not used for this amount of time (miliSeconds) would be droped
  * @param _reciveDataFunc user function to invoke when data is recived at server
  * @param _newClientConnected user function to invoke when new client is connected. can be left NULL.
  * @param _clientDissconected user function to invoke when client is disconnected, either because of server of client induces. can be left NULL.

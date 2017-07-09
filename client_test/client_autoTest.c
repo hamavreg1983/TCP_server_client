@@ -102,7 +102,9 @@ int main(int argc, char* argv[])
 					sent_bytes = TCP_ClientSend(clientContiner[i], msg, strlen(msg) + 1 );
 					if (0 > sent_bytes)
 					{
-						printf("\nError. send %d bytes", sent_bytes);
+						printf("\nError. send failed %d bytes", sent_bytes);
+						TCP_DestroyClient(clientContiner[i]);
+						clientContiner[i] = NULL;
 					}
 					else
 					{
@@ -117,6 +119,7 @@ int main(int argc, char* argv[])
 						else if (0 > recv_bytes)
 						{
 							/* error occurred */
+							printf("Reading server response fail.\n");
 
 						}
 						printf("recived(%d): %s.\n", recv_bytes, (char*) buffer);
