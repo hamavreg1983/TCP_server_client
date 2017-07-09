@@ -375,7 +375,7 @@ bool NonBlockingServer(TCP_S_t* _TCP)
 		list_iterator_t *it = list_iterator_new(_TCP->m_sockets, LIST_HEAD);
 		while ((node = list_iterator_next(it)))
 		{
-			resultSize = TCP_Recive(_TCP, *(int*)(node->val), buffer, BUFFER_MAX_SIZE);
+			resultSize = TCP_Recive(*(int*)(node->val), buffer, BUFFER_MAX_SIZE);
 			if (resultSize == 0)
 			{
 				/* socket was closed */
@@ -401,16 +401,6 @@ bool TCP_StopServer(TCP_S_t* _TCP)
 	return TRUE;
 }
 
-int TCP_SendWithChecks(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength)
-{
-	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
-	{
-		return GENERAL_ERROR;
-	}
-
-	return TCP_Send(_socketNum, _msg, _msgLength);
-}
-
 int TCP_Send(uint _socketNum, void* _msg, uint _msgLength)
 {
 	if ( NULL == _msg)
@@ -431,14 +421,14 @@ int TCP_Send(uint _socketNum, void* _msg, uint _msgLength)
 
 
 
-int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLength)
+int TCP_Recive(uint _socketNum, void* _buffer, uint _bufferMaxLength)
 {
 	int nBytesRead;
 
-	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
+/*	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
 	{
 		return GENERAL_ERROR;
-	}
+	}*/
 	if ( NULL == _buffer)
 	{
 		return GENERAL_ERROR;
@@ -566,7 +556,7 @@ int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
 		if (FD_ISSET( sd , _readfds))
 		{
 			/* found the socket that woke */
-			resultSize = TCP_Recive(_TCP, *(int*)(node->val), buffer, BUFFER_MAX_SIZE);
+			resultSize = TCP_Recive(*(int*)(node->val), buffer, BUFFER_MAX_SIZE);
 			if (resultSize == 0)
 			{
 				/* socket was closed */

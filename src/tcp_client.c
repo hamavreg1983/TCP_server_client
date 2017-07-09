@@ -81,6 +81,17 @@ TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort)
 		free(aTCP);
 		return NULL;
 	}
+
+	/* Reusing port */
+	int optval = 1;
+	if ( setsockopt(aTCP->m_commSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval) ) < 0)
+	{
+		perror("Socket setsockopt Failed");
+		close(aTCP->m_commSocket);
+		free(aTCP);
+		return FALSE;
+	}
+
 	aTCP->m_magicNumber = ALIVE_MAGIC_NUMBER;
 
 	if (! TCP_ClientConnect(aTCP) )

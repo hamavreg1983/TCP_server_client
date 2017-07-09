@@ -4,7 +4,8 @@
  *
  * @brief A TCP server and client ADT for future projects use.
  *
- * @bug not a possible TCP_SERVER_USER_ERROR were included.
+ * @bug not a possible TCP_SERVER_USER_ERROR were included./\
+ * 		when calling stop Server function and server is wating on select nothing would happen until next transmistion would arrive
  */
 
 #ifndef TCP_H_
@@ -75,26 +76,21 @@ bool TCP_StopServer(TCP_S_t* _TCP);
 /* for use of server and client */
 /**
  * @brief Function to send data (back?) to a client.
- * @param _TCP a pointer to the TCP struct
  * @param _socketNum a number representing the client the information would be send to.
  * @param _msg the data to be send. up to BUFFER_MAX_SIZE bytes.
  * @param _msgLength the data send size.
  * @return positive number represent the number of bytes send. negative number represent error.
  */
-int TCP_SendWithChecks(TCP_S_t* _TCP, uint _socketNum, void* _msg, uint _msgLength);
-
-/* TODO comment */
 int TCP_Send(uint _socketNum, void* _msg, uint _msgLength);
 
 /**
  * @brief Function to invoke data read from clients without looping. just a singal read.
- * @param _TCP a pointer to the TCP struct
  * @param _socketNum a number representing the client the information would be read from.
  * @param _buffer the data buffer to be read to. up to BUFFER_MAX_SIZE bytes.
  * @param _bufferMaxLength the data buffer max size.
  * @return positive number represent the number of bytes read. negative number represent error.
  */
-int TCP_Recive(TCP_S_t* _TCP, uint _socketNum, void* _buffer, uint _bufferMaxLength);
+int TCP_Recive(uint _socketNum, void* _buffer, uint _bufferMaxLength);
 
 
 

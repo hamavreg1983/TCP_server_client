@@ -4,7 +4,7 @@
  *
  * @brief A TCP client ADT for future projects use.
  *
- * @bug
+ * @bug after awile all sockets are full and no thramistion is able to send
  */
 
 #ifndef TCP_CLIENT_H_
