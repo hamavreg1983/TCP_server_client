@@ -180,13 +180,10 @@ bool ServerSetup(TCP_S_t* _TCP)
 {
 	/* setSocket. */
 	_TCP->m_listenSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (IS_NON_BLOCKING_METHOD == TRUE)
+	if (SetSocketBlockingEnabled(_TCP->m_listenSocket, FALSE) < 0)
 	{
-		if (SetSocketBlockingEnabled(_TCP->m_listenSocket, FALSE) < 0)
-		{
-			perror("Socket Failed");
-			return FALSE;
-		}
+		perror("Socket Failed");
+		return FALSE;
 	}
 
 	/* Reusing port */
@@ -202,7 +199,7 @@ bool ServerSetup(TCP_S_t* _TCP)
 	struct sockaddr_in sIn;
 	memset(&sIn , 0 , sizeof(sIn) );
 	sIn.sin_family = AF_INET;
-	if ( strlen(_TCP->m_serverIP) == 0 || _TCP->m_serverIP[0] == '\0')  /* TODO fix this */
+	if ( strlen(_TCP->m_serverIP) == 0 || _TCP->m_serverIP[0] == '\0')
 	 {
 		sIn.sin_addr.s_addr = INADDR_ANY;
 	} else {
@@ -487,16 +484,9 @@ bool SelectServer(TCP_S_t* _TCP)
 		if (FD_ISSET(_TCP->m_listenSocket, &readfds))
 		{
 			/* call server connect function */
-			if (IS_NON_BLOCKING_METHOD == FALSE)
+			while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
 			{
-				TCP_Server_ConnectNewClient(_TCP);
-			}
-			else
-			{
-				while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
-				{
-					/* keep on accepting all waiting client while there are some */
-				}
+				/* keep on accepting all waiting client while there are some */
 			}
 		}
 

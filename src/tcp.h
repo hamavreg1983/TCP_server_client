@@ -11,6 +11,8 @@
 #ifndef TCP_H_
 #define TCP_H_
 
+/* TODO turn listening socket to non blocking, so could accept all wating cnnections */
+/* TODO add timeout to connected client. list populated by use. each one has time stamp when to die. before each select chech in loop if last node need to die  */
 
 /* ~~~ Defines ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -73,7 +75,6 @@ bool TCP_RunServer(TCP_S_t* _TCP);
 bool TCP_StopServer(TCP_S_t* _TCP);
 
 
-/* for use of server and client */
 /**
  * @brief Function to send data (back?) to a client.
  * @param _socketNum a number representing the client the information would be send to.
