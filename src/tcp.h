@@ -11,7 +11,6 @@
 #ifndef TCP_H_
 #define TCP_H_
 
-/* TODO turn listening socket to non blocking, so could accept all wating cnnections */
 /* TODO add timeout to connected client. list populated by use. each one has time stamp when to die. before each select chech in loop if last node need to die  */
 
 /* ~~~ Defines ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -47,7 +46,7 @@ typedef struct TCP_S TCP_S_t;
  * @param _errorFunc user function to invoke when errors occur in server. can be left NULL.
  * @return a pointer to the struct. NULL if failed.
  */
-TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnections,
+TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnections, uint _timeoutMS,
 						userActionFunc _reciveDataFunc,
 						clientConnectionChangeFunc _newClientConnected,
 						clientConnectionChangeFunc _clientDissconected,

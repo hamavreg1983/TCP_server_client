@@ -63,12 +63,13 @@ int main(int argc, char* argv[])
 
 	uint portNum = 4848;
 	TCP_S_t* server;
+	uint timeoutMS = 60000;
 
 	/* TODO option get ip and port from agrc */
 
 	signalHangelSet(sigAbortHandler);
 
-	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, MyFunc, NULL, NULL, NULL);
+	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, timeoutMS, MyFunc, NULL, NULL, NULL);
 	g_tcp = server;
 
 	TCP_RunServer(server);

@@ -14,7 +14,7 @@ EXE_NAME3 = autoinputClient
 NEEDED_LIB = list/build/liblist.a
 
 CC = gcc
-CFLAGS = -Wall -pedantic -Isrc/ -Ilist/src
+CFLAGS = -g -Wall -pedantic -Isrc/ -Ilist/src
 
 .Phony : clean rebuild run
 

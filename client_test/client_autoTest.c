@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
 				}
 				else if(probabilty > 0.7)
 				{
-					/* send recive */
+					/* send & receive */
 
 					RandomMSG(msg, MAX_MSG_SIZE);
 
@@ -113,6 +113,11 @@ int main(int argc, char* argv[])
 							TCP_DestroyClient(clientContiner[i]);
 							clientContiner[i] = NULL;
 							/* break; */
+						}
+						else if (0 > recv_bytes)
+						{
+							/* error occurred */
+
 						}
 						printf("recived(%d): %s.\n", recv_bytes, (char*) buffer);
 
