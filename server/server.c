@@ -64,6 +64,8 @@ int main(int argc, char* argv[])
 	uint portNum = 4848;
 	TCP_S_t* server;
 
+	/* TODO option get ip and port from agrc */
+
 	signalHangelSet(sigAbortHandler);
 
 	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, MyFunc, NULL, NULL, NULL);

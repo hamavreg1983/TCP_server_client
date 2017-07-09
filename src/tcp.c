@@ -28,6 +28,7 @@
 #define GENERAL_ERROR -9
 #define BACK_LOG_CAPACITY 128
 
+/* This server can work on two methods. if TRUE a busy-wait read would occure. if FALSE a select waiting on all socket would occure. */
 #define IS_NON_BLOCKING_METHOD FALSE
 
 /* ~~~ Global ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -201,8 +202,8 @@ bool ServerSetup(TCP_S_t* _TCP)
 	struct sockaddr_in sIn;
 	memset(&sIn , 0 , sizeof(sIn) );
 	sIn.sin_family = AF_INET;
-	if ( strlen(_TCP->m_serverIP) == 0)
-	{
+	if ( strlen(_TCP->m_serverIP) == 0 || _TCP->m_serverIP[0] == '\0')  /* TODO fix this */
+	 {
 		sIn.sin_addr.s_addr = INADDR_ANY;
 	} else {
 		sIn.sin_addr.s_addr = inet_addr(_TCP->m_serverIP);
@@ -342,6 +343,13 @@ bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 
 bool TCP_RunServer(TCP_S_t* _TCP)
 {
+	if (! IsStructValid(_TCP) && ! IsConnected(_TCP))
+	{
+		return FALSE;
+	}
+
+	printf("Server is Ready. Waiting for clients...\n");
+
 	if (! IsStructValid(_TCP))
 	{
 		return FALSE;
@@ -425,10 +433,6 @@ int TCP_Recive(uint _socketNum, void* _buffer, uint _bufferMaxLength)
 {
 	int nBytesRead;
 
-/*	if ( !IsStructValid(_TCP) || ! IsConnected(_TCP))
-	{
-		return GENERAL_ERROR;
-	}*/
 	if ( NULL == _buffer)
 	{
 		return GENERAL_ERROR;
@@ -438,11 +442,7 @@ int TCP_Recive(uint _socketNum, void* _buffer, uint _bufferMaxLength)
 
     if (nBytesRead == 0)
     {
-		/* #if !defined(NDEBUG)
-    	printf("socket #%d was closed on client side. disconnecting from server.\n", _socketNum);
-		#endif */
-
-    	/* TCP_ServerDisconnectClient(_TCP, _socketNum); */
+		/* socket was closed on client side. do nothing, transfer 0 up a function where it would be disconnected */
     }
     else if ( IsFail_nonBlocking(nBytesRead) )
     {
