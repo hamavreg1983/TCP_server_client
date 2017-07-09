@@ -5,7 +5,8 @@
  * @brief A TCP server and client ADT for future projects use.
  *
  * @bug not a possible TCP_SERVER_USER_ERROR were included./\
- * 		when calling stop Server function and server is wating on select nothing would happen until next transmistion would arrive
+ * 		when calling stop Server function and server is waiting on select nothing would happen until next transmistion would arrive
+ * 		signal causes coreDump. a fix is explained here, but is not implemented. https://stackoverflow.com/questions/6962150/catching-signals-while-reading-from-pipe-with-select
  */
 
 #ifndef TCP_H_

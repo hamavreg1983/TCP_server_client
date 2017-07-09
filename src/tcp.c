@@ -29,7 +29,7 @@
 #define GENERAL_ERROR -9
 #define BACK_LOG_CAPACITY 128
 
-/* This server can work on two methods. if TRUE a busy-wait read would occure. if FALSE a select waiting on all socket would occure. */
+/* This server can work on two methods. if TRUE a busy-wait read would occur. if FALSE a select waiting on all socket would occur. */
 #define IS_NON_BLOCKING_METHOD FALSE
 
 /* ~~~ Global ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -647,7 +647,7 @@ static bool ShouldKillClient(TCP_S_t* _TCP)
 {
 	/* TODO remove hardcoded value */
 
-	if (_TCP->m_connectionCapacity * 0.95 <= _TCP->m_connectedNum)
+	if (_TCP->m_connectionCapacity * 0.99 <= _TCP->m_connectedNum)
 	{
 		/* server is almost full. lets disconnects the oldest connections */
 		list_node_t* tailNode = list_at(_TCP->m_sockets, -1);
