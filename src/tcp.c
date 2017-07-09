@@ -95,7 +95,7 @@ static bool SetSocketBlockingEnabled(int fd, bool blocking);
 static bool IsFail_nonBlocking(int _result);
 
 static bool MoveNodeToHead(list_t* _socketsContiner, list_node_t* node, uint _timeoutMS);
-
+static bool ShouldKillClient(TCP_S_t* _TCP);
 
 static void sanity_check(char* _string, uint _size, char _replaceWith);
 
@@ -522,9 +522,9 @@ static bool SelectServer(TCP_S_t* _TCP)
 	_TCP->m_isServerRun = TRUE;
 	while( _TCP->m_isServerRun )
 	{
-//		bool ShouldKillClient(TCP_S_t* _TCP , );
+		ShouldKillClient(_TCP);
 
-		timeout.tv_sec = 1;
+		timeout.tv_sec = _TCP->m_timeoutMS/1000;
 		timeout.tv_usec = 0;
 
 		max_sd = SetupSelect( _TCP->m_listenSocket, _TCP->m_sockets, &readfds);
@@ -538,20 +538,29 @@ static bool SelectServer(TCP_S_t* _TCP)
 			perror("select error");
 			return FALSE;
 		}
-
-		//If something happened on the master socket ,
-		//then its an incoming connection
-		if (FD_ISSET(_TCP->m_listenSocket, &readfds))
+		else if (activity == 0)
 		{
-			/* call server connect function */
-			while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
-			{
-				/* keep on accepting all waiting client while there are some */
-			}
-		}
+			/* select timeout. */
+			/* TODO remove tail of list? */
 
-		/* find the sockets that woke the selector, read from it and activate user function */
-		ReadFromSelect(_TCP, &readfds);
+		}
+		else{
+			/* activity > 0 means found real activity. */
+
+			//If something happened on the master socket ,
+			//then its an incoming connection
+			if (FD_ISSET(_TCP->m_listenSocket, &readfds))
+			{
+				/* call server connect function */
+				while ( TCP_Server_ConnectNewClient(_TCP) == TRUE)
+				{
+					/* keep on accepting all waiting client while there are some */
+				}
+			}
+
+			/* find the sockets that woke the selector, read from it and activate user function */
+			ReadFromSelect(_TCP, &readfds);
+		}
 	}
 
 	return TRUE;
@@ -634,6 +643,23 @@ static int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
 	return TRUE;
 }
 
+static bool ShouldKillClient(TCP_S_t* _TCP)
+{
+	/* TODO remove hardcoded value */
+
+	if (_TCP->m_connectionCapacity * 0.95 <= _TCP->m_connectedNum)
+	{
+		/* server is almost full. lets disconnects the oldest connections */
+		list_node_t* tailNode = list_at(_TCP->m_sockets, -1);
+
+		if (! TCP_ServerDisconnectClient(_TCP, (*(int*)(tailNode->val) ) ) )
+		{
+			perror("Can't remove at ShouldKillClient");
+		}
+	}
+
+	return TRUE;
+}
 
 /** Returns true on success, or false if there was an error */
 static bool SetSocketBlockingEnabled(int fd, bool blocking)
