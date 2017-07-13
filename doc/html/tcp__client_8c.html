@@ -103,14 +103,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a313cbcaf388b8ee286177007efed66e6"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#a313cbcaf388b8ee286177007efed66e6">TCP_ClientGetSocket</a> (<a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *_TCP)</td></tr>
 <tr class="memdesc:a313cbcaf388b8ee286177007efed66e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">If the client need to know the server socket it is connected to.  <a href="#a313cbcaf388b8ee286177007efed66e6">More...</a><br /></td></tr>
 <tr class="separator:a313cbcaf388b8ee286177007efed66e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aebbc19d9ce77dfe454991f2ca9818fee"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="tcp_8h.html#a1062901a7428fdd9c7f180f5e01ea056">bool</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#aebbc19d9ce77dfe454991f2ca9818fee">IsStructValid</a> (<a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *_TCP)</td></tr>
-<tr class="separator:aebbc19d9ce77dfe454991f2ca9818fee"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a562a079abc1aacf5baf5714fe2acdcec"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="tcp_8h.html#a1062901a7428fdd9c7f180f5e01ea056">bool</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#a562a079abc1aacf5baf5714fe2acdcec">IsConnected</a> (<a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *_TCP)</td></tr>
-<tr class="separator:a562a079abc1aacf5baf5714fe2acdcec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5d247b0865e18f38878e6717ee040aeb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="tcp_8h.html#a1062901a7428fdd9c7f180f5e01ea056">bool</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#a5d247b0865e18f38878e6717ee040aeb">TCP_ClientConnect</a> (<a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *_TCP)</td></tr>
 <tr class="separator:a5d247b0865e18f38878e6717ee040aeb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a249fcc2a06877d427302196e138323fa"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#a249fcc2a06877d427302196e138323fa">sanity_check</a> (char *_string, <a class="el" href="tcp_8h.html#a91ad9478d81a7aaf2593e8d9c3d06a14">uint</a> _size, char _replaceWith)</td></tr>
-<tr class="separator:a249fcc2a06877d427302196e138323fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a67c7bc3888c4bebf2a981f139c982176"><td class="memItemLeft" align="right" valign="top"><a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="tcp__client_8c.html#a67c7bc3888c4bebf2a981f139c982176">TCP_CreateClient</a> (char *_ServerIP, <a class="el" href="tcp_8h.html#a91ad9478d81a7aaf2593e8d9c3d06a14">uint</a> _serverPort)</td></tr>
 <tr class="memdesc:a67c7bc3888c4bebf2a981f139c982176"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create all is needed for a TCP client to connect to the server.  <a href="#a67c7bc3888c4bebf2a981f139c982176">More...</a><br /></td></tr>
 <tr class="separator:a67c7bc3888c4bebf2a981f139c982176"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -174,94 +168,6 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a class="anchor" id="a562a079abc1aacf5baf5714fe2acdcec"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="tcp_8h.html#a1062901a7428fdd9c7f180f5e01ea056">bool</a> IsConnected </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *&#160;</td>
-          <td class="paramname"><em>_TCP</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aebbc19d9ce77dfe454991f2ca9818fee"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="tcp_8h.html#a1062901a7428fdd9c7f180f5e01ea056">bool</a> IsStructValid </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="tcp__client_8h.html#a3db7b57ed8c85377051fea41ecaf4ff9">TCP_C_t</a> *&#160;</td>
-          <td class="paramname"><em>_TCP</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a249fcc2a06877d427302196e138323fa"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static void sanity_check </td>
-          <td>(</td>
-          <td class="paramtype">char *&#160;</td>
-          <td class="paramname"><em>_string</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="tcp_8h.html#a91ad9478d81a7aaf2593e8d9c3d06a14">uint</a>&#160;</td>
-          <td class="paramname"><em>_size</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">char&#160;</td>
-          <td class="paramname"><em>_replaceWith</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a5d247b0865e18f38878e6717ee040aeb"></a>
 <div class="memitem">
 <div class="memproto">

@@ -5,7 +5,7 @@
  * @brief A TCP server and client ADT for future projects use.
  *
  * @bug not a possible TCP_SERVER_USER_ERROR were included.
- * @bug when calling stop Server function and server is waiting on select nothing would happen until next transmistion would arrive
+ * @bug when calling stop Server function and server is waiting on select nothing would happen until next transmission would arrive
  */
 
 #ifndef TCP_H_

@@ -559,7 +559,7 @@ static bool SelectServer(TCP_S_t* _TCP)
 	_TCP->m_isServerRun = TRUE;
 	while( _TCP->m_isServerRun )
 	{
-
+		/* TODO next line bracks code */
 		when2wakeup = DealWithTimeout(_TCP); /* close sockets that are open for longer than timeout */
 		KillOldestClient(_TCP); /* if capacity is full, close oldest connections */
 
@@ -568,6 +568,7 @@ static bool SelectServer(TCP_S_t* _TCP)
 		//wait for an activity on one of the sockets , timeout is NULL ,
 		//so wait indefinitely
 		activity = select( max_sd + 1 , &readfds , NULL , NULL , &when2wakeup);
+		//activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL); /* after the timeout replace this line with the one above */
 
 		if ((activity < 0) && (errno!=EINTR)) /* change to my function that check if real failed */
 		{
@@ -613,7 +614,7 @@ static timeval_t DealWithTimeout(TCP_S_t* _TCP)
 		perror("failed to get time.\n");
 	}
 
-	while (	(tailNode = list_at(_TCP->m_sockets, -1) ) != NULL)
+	while (	(tailNode = list_at(_TCP->m_sockets, -1) ) != list_at(_TCP->m_sockets, 0))
 	{
 		/* test tailNode is not endNode = list is empty */
 

@@ -29,7 +29,7 @@ TCP_C_t* TCP_CreateClient(char* _ServerIP, uint _serverPort);
 
 
 /**
- * @brief Cleans up and free after the program. This include the dissconect function inseide it.
+ * @brief Cleans up and free after the program. This include the disconnect function inside it.
  * @param _TCP pointer to the struct
  * @return void. silent fail.
  */

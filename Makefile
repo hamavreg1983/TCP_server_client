@@ -22,8 +22,8 @@ CFLAGS = -g -Wall -pedantic -Isrc/ -Ilist/src
 $(EXE_NAME1): src/tcp.o server/server.o $(NEEDED_LIB)
 	$(CC) $(CFLAGS) src/tcp.o server/server.o $(NEEDED_LIB) -o $(EXE_NAME1) 
 
-$(EXE_NAME2): client_test/client_userInput.o src/tcp.o $(NEEDED_LIB)
-	$(CC) $(CFLAGS) client_test/client_userInput.o src/tcp.o  $(NEEDED_LIB) -o $(EXE_NAME2)
+$(EXE_NAME2): client_test/client_userInput.o src/tcp_client.o  $(NEEDED_LIB)
+	$(CC) $(CFLAGS) client_test/client_userInput.o src/tcp_client.o  $(NEEDED_LIB) -o $(EXE_NAME2)
  
 $(EXE_NAME3): client_test/client_autoTest.o src/tcp.o src/tcp_client.o $(NEEDED_LIB)
 	$(CC) $(CFLAGS) client_test/client_autoTest.o src/tcp.o src/tcp_client.o $(NEEDED_LIB) -o $(EXE_NAME3) 
