@@ -61,6 +61,8 @@ struct TCP_S
 	clientConnectionChangeFunc m_closedConnectionFunc;
 	errorFunc m_errorFunc;
 
+	void* m_contex;
+
 };
 
 typedef struct SocketInfo
@@ -107,7 +109,7 @@ static timeval_t DealWithTimeout(TCP_S_t* _TCP);
 static SocketInfo_t* CreateSocketInfo(int _socket, uint _timeoutMS);
 static void DestorySocketInfo(SocketInfo_t* _SI);
 static int getSocket(list_node_t* _node);
-static int setSocket(list_node_t* _node, int _socketNum);
+/* static int setSocket(list_node_t* _node, int _socketNum); */ /* un used */
 static timeval_t getTimeout(list_node_t* _node);
 static timeval_t setTimeout(list_node_t* _node, timeval_t _when2die);
 static timeval_t WhenIsTime2Die(uint _timeoutMS);
@@ -120,7 +122,8 @@ TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnection
 		userActionFunc _reciveDataFunc,
 		clientConnectionChangeFunc _newClientConnected,
 		clientConnectionChangeFunc _clientDissconected,
-		errorFunc _errorFunc
+		errorFunc _errorFunc,
+		void* _contex
 		)
 {
 	TCP_S_t* aTCP = 0;
@@ -155,6 +158,7 @@ TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnection
 	aTCP->m_newConnectionFunc = _newClientConnected;
 	aTCP->m_closedConnectionFunc = _clientDissconected;
 	aTCP->m_errorFunc = _errorFunc;
+	aTCP->m_contex = _contex;
 
 	if (! ServerSetup(aTCP) )
 	{
@@ -250,7 +254,7 @@ static bool NonBlockingServer(TCP_S_t* _TCP)
 			}
 			else if (resultSize > 0)
 			{
-				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node) , NULL);
+				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node) , _TCP->m_contex);
 			}
 		}
 	}
@@ -443,7 +447,7 @@ static bool TCP_Server_ConnectNewClient(TCP_S_t* _TCP)
 		if (_TCP->m_newConnectionFunc)
 		{
 			/* if user provide a function to invoke when new client connected */
-			_TCP->m_newConnectionFunc(socket, NULL);
+			_TCP->m_newConnectionFunc(socket, _TCP->m_contex);
 		}
 
 		return TRUE;
@@ -483,7 +487,7 @@ static bool TCP_ServerDisconnectClient(TCP_S_t* _TCP, uint _socketNum)
 			if (_TCP->m_closedConnectionFunc)
 			{
 				/* if user provide a function to invoke when a client disconnect */
-				_TCP->m_closedConnectionFunc( getSocket(node) , NULL);
+				_TCP->m_closedConnectionFunc( getSocket(node) , _TCP->m_contex);
 			}
 
 			close( getSocket(node) );
@@ -704,7 +708,8 @@ static int ReadFromSelect(TCP_S_t* _TCP, fd_set* _readfds)
 			}
 			else if (resultSize > 0)
 			{
-				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node), NULL);
+				_TCP->m_reciveDataFunc(buffer, resultSize, getSocket(node), _TCP->m_contex);
+
 				if (! MoveNodeToHead(_TCP->m_sockets, node, _TCP->m_timeoutMS) )
 				{
 					perror("Error UpdateSocketTimeout.\n");
@@ -779,17 +784,17 @@ static int getSocket(list_node_t* _node)
 	return tempSocketInfo->m_socketFD;
 }
 
-static int setSocket(list_node_t* _node, int _socketNum)
-{
-	if (NULL == _node)
-	{
-		return -1;
-	}
-
-	SocketInfo_t* tempSocketInfo = _node->val;
-	tempSocketInfo->m_socketFD = _socketNum;
-	return tempSocketInfo->m_socketFD;
-}
+//static int setSocket(list_node_t* _node, int _socketNum)
+//{
+//	if (NULL == _node)
+//	{
+//		return -1;
+//	}
+//
+//	SocketInfo_t* tempSocketInfo = _node->val;
+//	tempSocketInfo->m_socketFD = _socketNum;
+//	return tempSocketInfo->m_socketFD;
+//}
 
 static timeval_t getTimeout(list_node_t* _node)
 {

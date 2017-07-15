@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 
 	signalHangelSet(sigAbortHandler);
 
-	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, timeoutMS, MyFunc, NULL, NULL, NULL);
+	server = TCP_CreateServer(portNum, NULL, MAX_CONNECTIONS_ALLWAED, timeoutMS, MyFunc, NULL, NULL, NULL, NULL);
 	g_tcp = server;
 
 	TCP_RunServer(server);

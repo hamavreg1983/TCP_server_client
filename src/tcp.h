@@ -6,11 +6,13 @@
  *
  * @bug not a possible TCP_SERVER_USER_ERROR were included.
  * @bug when calling stop Server function and server is waiting on select nothing would happen until next transmission would arrive
+ * @bug timeout function has some undefined behavior
  */
 
 #ifndef TCP_H_
 #define TCP_H_
 
+#include "sys/types.h" /* size_t */
 
 /* ~~~ Defines ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -50,7 +52,8 @@ TCP_S_t* TCP_CreateServer(uint _port, const char* _serverIP, uint _maxConnection
 						userActionFunc _reciveDataFunc,
 						clientConnectionChangeFunc _newClientConnected,
 						clientConnectionChangeFunc _clientDissconected,
-						errorFunc _errorFunc
+						errorFunc _errorFunc,
+						void* _contex
 						);
 /**
  * @brief Cleans up and free after the program.
