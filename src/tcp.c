@@ -564,15 +564,15 @@ static bool SelectServer(TCP_S_t* _TCP)
 	while( _TCP->m_isServerRun )
 	{
 		/* TODO next line bracks code */
-		when2wakeup = DealWithTimeout(_TCP); /* close sockets that are open for longer than timeout */
+		//when2wakeup = DealWithTimeout(_TCP); /* close sockets that are open for longer than timeout */ /* TODO BUGs lay here!!! */
 		KillOldestClient(_TCP); /* if capacity is full, close oldest connections */
 
 		max_sd = SetupSelect( _TCP->m_listenSocket, _TCP->m_sockets, &readfds);
 
 		//wait for an activity on one of the sockets , timeout is NULL ,
 		//so wait indefinitely
-		activity = select( max_sd + 1 , &readfds , NULL , NULL , &when2wakeup);
-		//activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL); /* after the timeout replace this line with the one above */
+		//activity = select( max_sd + 1 , &readfds , NULL , NULL , &when2wakeup);
+		activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL); /* after the timeout replace this line with the one above */
 
 		if ((activity < 0) && (errno!=EINTR)) /* change to my function that check if real failed */
 		{
@@ -739,6 +739,8 @@ static bool KillOldestClient(TCP_S_t* _TCP)
 		{
 			perror("Can't remove at ShouldKillClient");
 		}
+		//list_rpop(_TCP->m_sockets); /* TODO shopuld it be here? */
+		//list_remove(_TCP->m_sockets, tailNode);
 	}
 
 	return TRUE;
